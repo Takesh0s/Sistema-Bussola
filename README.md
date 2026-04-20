@@ -161,8 +161,8 @@ Edite `supabase.js` com sua URL e chave anon do Supabase:
 
 ```js
 const supabase = window.supabase.createClient(
-  'https://SEU_PROJETO.supabase.co',
-  'SUA_CHAVE_ANON'
+  'https://gjplfuopvdsoaracqljp.supabase.co',
+  'sb_publishable_kDXuYFeJAEYbbytOJjDJhQ_2k8v8fL1'
 );
 ```
 
