@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sistema Bússola — Patrimônio</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+</nav>
+
+<div class="page-wide fade-in">
+  <div class="page-title-bar">
+    <a class="back-btn" href="dashboard.html">←</a>
+    <div><h1>📦 Controle de Patrimônio</h1><p>Inventário de bens do clube</p></div>
+  </div>
+
+  <div class="two-col">
+    <!-- Form -->
+    <div class="card">
+      <div class="card-header">
+        <div class="icon">📦</div>
+        <div><h2 id="formTitle">Novo Item</h2></div>
+      </div>
+
+      <input type="hidden" id="editId"/>
+
+      <div class="form-group"><label>Nome do Item</label>
+        <input type="text" id="item" placeholder="Ex: Barraca de camping"/>
+      </div>
+      <div class="form-group"><label>Quantidade</label>
+        <input type="number" id="quantidade" placeholder="1" min="1"/>
+      </div>
+      <div class="form-group"><label>Estado</label>
+        <select id="estado">
+          <option value="">Selecione...</option>
+          <option value="Novo">Novo</option>
+          <option value="Bom">Bom</option>
+          <option value="Usado">Usado</option>
+          <option value="Danificado">Danificado</option>
+          <option value="Descartado">Descartado</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Unidade Responsável <span style="color:var(--c-muted);font-weight:400">(opcional)</span></label>
+        <select id="unidade"><option value="">Patrimônio geral</option></select>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-primary" id="btnSalvar">Cadastrar Item</button>
+        <button class="btn btn-secondary" id="btnCancelar" style="display:none">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- List -->
+    <div class="card">
+      <div class="card-header">
+        <div class="icon">📋</div>
+        <div><h2>Inventário</h2></div>
+      </div>
+
+      <input type="text" id="busca" placeholder="🔍  Buscar item..." style="margin-bottom:12px"/>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Qtd</th><th>Estado</th><th>Unidade</th><th></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="supabase.js"></script>
+<script src="utils.js"></script>
+<script>
+requireAuth();
+
+let todos = [];
+
+async function carregarUnidades() {
+  const { data } = await supabase.from('unidade').select('id, nome').order('nome');
+  document.getElementById('unidade').innerHTML = '<option value="">Patrimônio geral</option>' +
+    (data||[]).map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
+}
+
+async function listar() {
+  const { data } = await supabase.from('patrimonio')
+    .select('*, unidade:unidade_id(nome)').order('item');
+  todos = data || [];
+  render(todos);
+}
+
+const estadoColor = { 'Novo': 'badge-teal', 'Bom': 'badge-green', 'Usado': 'badge-amber', 'Danificado': 'badge-red', 'Descartado': 'badge-red' };
+
+function render(lista) {
+  const tbody = document.getElementById('tbody');
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📦</div><p>Inventário vazio.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(p => `
+    <tr>
+      <td><strong>${p.item}</strong></td>
+      <td style="font-family:var(--font-mono)">${p.quantidade}</td>
+      <td><span class="badge ${estadoColor[p.estado]||'badge-amber'}">${p.estado}</span></td>
+      <td style="font-size:.8rem;color:var(--c-muted)">${p.unidade?.nome || 'Geral'}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-icon" onclick="editar('${p.id}','${p.item}',${p.quantidade},'${p.estado}','${p.unidade_id||''}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="excluir('${p.id}')">✕</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('busca').addEventListener('input', e => {
+  render(todos.filter(p => p.item.toLowerCase().includes(e.target.value.toLowerCase())));
+});
+
+function editar(id, item, qty, estado, unidadeId) {
+  document.getElementById('editId').value = id;
+  document.getElementById('item').value = item;
+  document.getElementById('quantidade').value = qty;
+  document.getElementById('estado').value = estado;
+  document.getElementById('unidade').value = unidadeId;
+  document.getElementById('formTitle').textContent = 'Editar Item';
+  document.getElementById('btnSalvar').textContent = 'Salvar';
+  document.getElementById('btnCancelar').style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelar() {
+  document.getElementById('editId').value = '';
+  document.getElementById('item').value = '';
+  document.getElementById('quantidade').value = '';
+  document.getElementById('estado').value = '';
+  document.getElementById('unidade').value = '';
+  document.getElementById('formTitle').textContent = 'Novo Item';
+  document.getElementById('btnSalvar').textContent = 'Cadastrar Item';
+  document.getElementById('btnCancelar').style.display = 'none';
+}
+
+async function excluir(id) {
+  if (!confirm('Excluir este item do inventário?')) return;
+  const { error } = await supabase.from('patrimonio').delete().eq('id', id);
+  if (error) flash(error.message, 'error');
+  else { flash('Item excluído.'); listar(); }
+}
+
+document.getElementById('btnSalvar').addEventListener('click', async () => {
+  const id         = document.getElementById('editId').value;
+  const item       = document.getElementById('item').value.trim();
+  const quantidade = parseInt(document.getElementById('quantidade').value);
+  const estado     = document.getElementById('estado').value;
+  const unidade_id = document.getElementById('unidade').value || null;
+
+  if (!item)              { flash('Informe o nome do item.', 'error'); return; }
+  if (!quantidade || quantidade < 1) { flash('Informe a quantidade.', 'error'); return; }
+  if (!estado)            { flash('Selecione o estado.', 'error'); return; }
+
+  const payload = { item, quantidade, estado, unidade_id };
+  const op = id ? supabase.from('patrimonio').update(payload).eq('id', id)
+                : supabase.from('patrimonio').insert([payload]);
+  const { error } = await op;
+  if (error) { flash(error.message, 'error'); return; }
+
+  flash(id ? 'Item atualizado!' : 'Item cadastrado!');
+  cancelar(); listar();
+});
+
+document.getElementById('btnCancelar').addEventListener('click', cancelar);
+carregarUnidades(); listar();
+</script>
+</body>
+</html>
