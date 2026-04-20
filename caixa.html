@@ -11,7 +11,7 @@
 
 <nav class="navbar">
   <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
-  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="db.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
 </nav>
 
 <div class="page-wide fade-in">
@@ -98,7 +98,7 @@ requireAuth();
 let todos = [];
 
 async function listar() {
-  const { data } = await supabase.from('caixa').select('*').order('data', { ascending: false });
+  const { data } = await db.from('caixa').select('*').order('data', { ascending: false });
   todos = data || [];
   calcularSaldos(todos);
   aplicarFiltros();
@@ -151,7 +151,7 @@ function aplicarFiltros() {
 
 async function excluir(id) {
   if (!confirm('Excluir esta movimentação?')) return;
-  const { error } = await supabase.from('caixa').delete().eq('id', id);
+  const { error } = await db.from('caixa').delete().eq('id', id);
   if (error) flash(error.message, 'error');
   else { flash('Movimentação excluída.'); listar(); }
 }
@@ -169,7 +169,7 @@ document.getElementById('btnRegistrar').addEventListener('click', async () => {
   if (!descricao)         { flash('Informe a descrição.', 'error'); return; }
   if (isNaN(valor) || valor <= 0) { flash('Informe um valor válido.', 'error'); return; }
 
-  const { error } = await supabase.from('caixa').insert([{
+  const { error } = await db.from('caixa').insert([{
     tipo, descricao, valor, data: data || new Date().toISOString().split('T')[0]
   }]);
 

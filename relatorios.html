@@ -13,7 +13,7 @@
 
 <nav class="navbar">
   <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
-  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="db.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
 </nav>
 
 <div class="page-wide fade-in">
@@ -106,7 +106,7 @@ function rodape(doc) {
 
 // ── Autorização de Saída ────────────────────────────────────
 async function carregarUnidades() {
-  const { data } = await supabase.from('unidade').select('id, nome').order('nome');
+  const { data } = await db.from('unidade').select('id, nome').order('nome');
   document.getElementById('selUnidade').innerHTML = '<option value="">Selecione uma unidade...</option>' +
     (data||[]).map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
 }
@@ -115,9 +115,9 @@ async function gerarSaida() {
   const unidadeId = document.getElementById('selUnidade').value;
   if (!unidadeId) { flash('Selecione a unidade.', 'error'); return; }
 
-  const { data: unidade } = await supabase.from('unidade')
+  const { data: unidade } = await db.from('unidade')
     .select('nome, conselheiro:conselheiro_id(nome)').eq('id', unidadeId).single();
-  const { data: desb } = await supabase.from('desbravador')
+  const { data: desb } = await db.from('desbravador')
     .select('nome, data_nascimento, contato').eq('unidade_id', unidadeId).order('nome');
 
   const doc = new jsPDF();
@@ -154,7 +154,7 @@ async function gerarSaida() {
 
 // ── Fluxo de Caixa ──────────────────────────────────────────
 async function gerarFluxoCaixa() {
-  const { data } = await supabase.from('caixa').select('*').order('data');
+  const { data } = await db.from('caixa').select('*').order('data');
 
   const doc = new jsPDF();
   let y = cabecalho(doc, 'Relatório de Fluxo de Caixa');
@@ -202,7 +202,7 @@ async function gerarFluxoCaixa() {
 
 // ── Patrimônio ──────────────────────────────────────────────
 async function gerarPatrimonio() {
-  const { data } = await supabase.from('patrimonio')
+  const { data } = await db.from('patrimonio')
     .select('*, unidade:unidade_id(nome)').order('item');
 
   const doc = new jsPDF();
@@ -230,8 +230,8 @@ async function gerarPatrimonio() {
 // ── Atas e Atos ─────────────────────────────────────────────
 async function gerarAtasAtos() {
   const [atas, atos] = await Promise.all([
-    supabase.from('atas').select('*').order('data'),
-    supabase.from('atos').select('*').order('data'),
+    db.from('atas').select('*').order('data'),
+    db.from('atos').select('*').order('data'),
   ]);
 
   const doc = new jsPDF();
@@ -280,7 +280,7 @@ async function gerarAtasAtos() {
 
 // ── Mensalidades ────────────────────────────────────────────
 async function gerarMensalidades() {
-  const { data } = await supabase.from('mensalidade')
+  const { data } = await db.from('mensalidade')
     .select('*, desbravador:desbravador_id(nome)')
     .order('ano', { ascending: false }).order('mes', { ascending: false });
 
@@ -324,10 +324,10 @@ async function gerarMensalidades() {
 // ── Relatório Geral ─────────────────────────────────────────
 async function gerarGeral() {
   const [u, cl, e, d] = await Promise.all([
-    supabase.from('unidade').select('*, conselheiro:conselheiro_id(nome)').order('nome'),
-    supabase.from('classe').select('*').order('nome'),
-    supabase.from('especialidades').select('*').order('nome'),
-    supabase.from('desbravador').select('*, unidade(nome), classe(nome)').order('nome'),
+    db.from('unidade').select('*, conselheiro:conselheiro_id(nome)').order('nome'),
+    db.from('classe').select('*').order('nome'),
+    db.from('especialidades').select('*').order('nome'),
+    db.from('desbravador').select('*, unidade(nome), classe(nome)').order('nome'),
   ]);
 
   const doc = new jsPDF();

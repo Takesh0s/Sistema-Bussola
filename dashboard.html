@@ -98,10 +98,10 @@
 
   // Stats
   const [u, d, m, c] = await Promise.all([
-    supabase.from('unidade').select('id', { count:'exact', head:true }),
-    supabase.from('desbravador').select('id', { count:'exact', head:true }),
-    supabase.from('mensalidade').select('id', { count:'exact', head:true }).eq('pago', false),
-    supabase.from('caixa').select('tipo, valor'),
+    db.from('unidade').select('id', { count:'exact', head:true }),
+    db.from('desbravador').select('id', { count:'exact', head:true }),
+    db.from('mensalidade').select('id', { count:'exact', head:true }).eq('pago', false),
+    db.from('caixa').select('tipo, valor'),
   ]);
 
   document.getElementById('stUnidades').textContent = u.count ?? 0;
@@ -116,7 +116,7 @@
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await db.auth.signOut();
     window.location.href = 'index.html';
   }
 

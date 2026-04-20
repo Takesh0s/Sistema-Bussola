@@ -74,7 +74,7 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Criando conta...';
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await db.auth.signUp({ email, password });
 
     if (error) {
       showFlash(error.message);
@@ -88,7 +88,7 @@
 
   document.getElementById('googleBtn').addEventListener('click', () => {
     const base = window.location.origin.includes('localhost') ? 'http://localhost:8080' : window.location.origin;
-    supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: base + '/dashboard.html' } });
+    db.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: base + '/dashboard.html' } });
   });
 </script>
 </body>

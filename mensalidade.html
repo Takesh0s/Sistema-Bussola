@@ -11,7 +11,7 @@
 
 <nav class="navbar">
   <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
-  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="db.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
 </nav>
 
 <div class="page-wide fade-in">
@@ -93,14 +93,14 @@ requireAuth();
 let todos = [];
 
 async function carregarDesb() {
-  const { data } = await supabase.from('desbravador').select('id, nome').order('nome');
+  const { data } = await db.from('desbravador').select('id, nome').order('nome');
   const opts = (data||[]).map(d => `<option value="${d.id}">${d.nome}</option>`).join('');
   document.getElementById('desbravador').innerHTML = '<option value="">Selecione...</option>' + opts;
   document.getElementById('filtroDesb').innerHTML  = '<option value="">Todos os membros</option>' + opts;
 }
 
 async function listar() {
-  const { data } = await supabase.from('mensalidade')
+  const { data } = await db.from('mensalidade')
     .select('*, desbravador:desbravador_id(nome)')
     .order('ano', { ascending: false }).order('mes', { ascending: false });
   todos = data || [];
@@ -144,14 +144,14 @@ function aplicarFiltros() {
 }
 
 async function togglePago(id, atual) {
-  const { error } = await supabase.from('mensalidade').update({ pago: !atual }).eq('id', id);
+  const { error } = await db.from('mensalidade').update({ pago: !atual }).eq('id', id);
   if (error) flash(error.message, 'error');
   else { flash(atual ? 'Marcado como em aberto.' : 'Marcado como pago!'); listar(); }
 }
 
 async function excluir(id) {
   if (!confirm('Excluir este registro de mensalidade?')) return;
-  const { error } = await supabase.from('mensalidade').delete().eq('id', id);
+  const { error } = await db.from('mensalidade').delete().eq('id', id);
   if (error) flash(error.message, 'error');
   else { flash('Registro excluído.'); listar(); }
 }
@@ -171,7 +171,7 @@ document.getElementById('btnRegistrar').addEventListener('click', async () => {
   if (!ano || ano < 2020) { flash('Informe o ano corretamente.', 'error'); return; }
   if (isNaN(valor) || valor < 0) { flash('Informe o valor.', 'error'); return; }
 
-  const { error } = await supabase.from('mensalidade').insert([{
+  const { error } = await db.from('mensalidade').insert([{
     desbravador_id: desbrId, mes, ano, valor, pago
   }]);
 

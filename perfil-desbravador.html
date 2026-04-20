@@ -11,7 +11,7 @@
 
 <nav class="navbar">
   <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
-  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="db.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
 </nav>
 
 <div class="page-wide fade-in">
@@ -75,7 +75,7 @@ const id = new URLSearchParams(location.search).get('id');
 if (!id) location.href = 'desbravador.html';
 
 (async () => {
-  const { data: d } = await supabase.from('desbravador')
+  const { data: d } = await db.from('desbravador')
     .select('*, unidade(nome), classe(nome)')
     .eq('id', id).single();
 
@@ -89,7 +89,7 @@ if (!id) location.href = 'desbravador.html';
   document.title = `Bússola — ${d.nome}`;
 
   // Especialidades
-  const { data: es } = await supabase.from('desbravador_especialidade')
+  const { data: es } = await db.from('desbravador_especialidade')
     .select('*, especialidade:especialidade_id(nome)')
     .eq('desbravador_id', id);
 
@@ -103,7 +103,7 @@ if (!id) location.href = 'desbravador.html';
   }
 
   // Mensalidades
-  const { data: ms } = await supabase.from('mensalidade')
+  const { data: ms } = await db.from('mensalidade')
     .select('*').eq('desbravador_id', id)
     .order('ano', { ascending: false }).order('mes', { ascending: false });
 

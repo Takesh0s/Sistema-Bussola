@@ -49,7 +49,7 @@
 <script src="supabase.js"></script>
 <script>
   // Redireciona se já logado
-  supabase.auth.getSession().then(({ data }) => {
+  db.auth.getSession().then(({ data }) => {
     if (data.session) window.location.href = 'dashboard.html';
   });
 
@@ -71,7 +71,7 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Entrando...';
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await db.auth.signInWithPassword({ email, password });
 
     if (error) {
       showFlash(error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : error.message);
@@ -91,7 +91,7 @@
     const base = window.location.origin.includes('localhost')
       ? 'http://localhost:8080'
       : window.location.origin;
-    supabase.auth.signInWithOAuth({
+    db.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: base + '/dashboard.html' }
     });

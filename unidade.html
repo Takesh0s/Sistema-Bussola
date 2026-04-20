@@ -11,7 +11,7 @@
 
 <nav class="navbar">
   <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
-  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="db.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
 </nav>
 
 <div class="page-wide fade-in">
@@ -30,7 +30,9 @@
 
       <input type="hidden" id="editId"/>
 
-      <div class="form-group"><label>Nome da Unidade</label><input type="text" id="nome" placeholder="Ex: Unidade Águias"/></div>
+      <div class="form-group"><label>Nome da Unidade</label>
+        <input type="text" id="nome" placeholder="Ex: Unidade Águias"/>
+      </div>
       <div class="form-group">
         <label>Conselheiro Titular</label>
         <select id="conselheiro"><option value="">Selecione...</option></select>
@@ -59,7 +61,7 @@
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Unidade</th><th>Conselheiro</th><th>Associados</th><th></th></tr></thead>
+          <thead><tr><th>Unidade</th><th>Membros</th><th></th></tr></thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
@@ -75,7 +77,7 @@ requireAuth();
 let conselheiros = [];
 
 async function carregarConselheiros() {
-  const { data } = await supabase.from('conselheiro').select('*').order('nome');
+  const { data } = await db.from('conselheiro').select('*').order('nome');
   conselheiros = data || [];
   const opts = conselheiros.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
   document.getElementById('conselheiro').innerHTML = '<option value="">Selecione...</option>' + opts;
@@ -84,39 +86,55 @@ async function carregarConselheiros() {
 }
 
 async function listar() {
-  const { data } = await supabase.from('unidade')
-    .select('*, conselheiro:conselheiro_id(nome), assoc1:associado1_id(nome), assoc2:associado2_id(nome)')
-    .order('nome');
+  // Busca unidades + seus membros via unidade_membro
+  const { data: unidades } = await db.from('unidade').select('*').order('nome');
+  const { data: membros } = await supabase
+    .from('unidade_membro')
+    .select('unidade_id, tipo, conselheiro:conselheiro_id(id, nome)');
 
   const tbody = document.getElementById('tbody');
-  if (!data?.length) {
-    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🏕️</div><p>Nenhuma unidade cadastrada.</p></div></td></tr>`;
+  if (!unidades?.length) {
+    tbody.innerHTML = `<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">🏕️</div><p>Nenhuma unidade cadastrada.</p></div></td></tr>`;
     return;
   }
 
-  tbody.innerHTML = data.map(u => `
-    <tr>
+  tbody.innerHTML = unidades.map(u => {
+    const mems = (membros || []).filter(m => m.unidade_id === u.id);
+    const titular = mems.find(m => m.tipo === 'conselheiro');
+    const assocs  = mems.filter(m => m.tipo === 'associado');
+    const membrosStr = [
+      titular ? `<span class="badge badge-teal">${titular.conselheiro?.nome}</span>` : '',
+      ...assocs.map(a => `<span class="chip">${a.conselheiro?.nome}</span>`)
+    ].filter(Boolean).join(' ') || '—';
+
+    return `<tr>
       <td><strong>${u.nome}</strong></td>
-      <td>${u.conselheiro?.nome || '—'}</td>
-      <td style="font-size:.8rem;color:var(--c-muted)">
-        ${[u.assoc1?.nome, u.assoc2?.nome].filter(Boolean).join(', ') || '—'}
-      </td>
+      <td style="font-size:.85rem">${membrosStr}</td>
       <td>
         <div style="display:flex;gap:6px">
-          <button class="btn btn-icon" title="Editar" onclick="editar('${u.id}','${u.nome}','${u.conselheiro_id||''}','${u.associado1_id||''}','${u.associado2_id||''}')">✏️</button>
+          <button class="btn btn-icon" title="Editar" onclick="editar('${u.id}','${u.nome}')">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="excluir('${u.id}')">Excluir</button>
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
-function editar(id, nome, cId, a1, a2) {
+async function editar(id, nome) {
+  // Carrega os membros atuais desta unidade
+  const { data: mems } = await supabase
+    .from('unidade_membro')
+    .select('tipo, conselheiro_id')
+    .eq('unidade_id', id);
+
+  const titular = mems?.find(m => m.tipo === 'conselheiro');
+  const assocs  = mems?.filter(m => m.tipo === 'associado') || [];
+
   document.getElementById('editId').value = id;
   document.getElementById('nome').value = nome;
-  document.getElementById('conselheiro').value = cId;
-  document.getElementById('assoc1').value = a1;
-  document.getElementById('assoc2').value = a2;
+  document.getElementById('conselheiro').value = titular?.conselheiro_id || '';
+  document.getElementById('assoc1').value = assocs[0]?.conselheiro_id || '';
+  document.getElementById('assoc2').value = assocs[1]?.conselheiro_id || '';
   document.getElementById('formTitle').textContent = 'Editar Unidade';
   document.getElementById('btnSalvar').textContent = 'Salvar Alterações';
   document.getElementById('btnCancelar').style.display = '';
@@ -136,28 +154,42 @@ function cancelar() {
 
 async function excluir(id) {
   if (!confirm('Excluir esta unidade? Os desbravadores vinculados ficarão sem unidade.')) return;
-  const { error } = await supabase.from('unidade').delete().eq('id', id);
+  await db.from('unidade_membro').delete().eq('unidade_id', id);
+  const { error } = await db.from('unidade').delete().eq('id', id);
   if (error) flash('Erro: ' + error.message, 'error');
   else { flash('Unidade excluída.'); listar(); }
 }
 
 document.getElementById('btnSalvar').addEventListener('click', async () => {
-  const id      = document.getElementById('editId').value;
-  const nome    = document.getElementById('nome').value.trim();
-  const cId     = document.getElementById('conselheiro').value;
-  const a1      = document.getElementById('assoc1').value || null;
-  const a2      = document.getElementById('assoc2').value || null;
+  const id    = document.getElementById('editId').value;
+  const nome  = document.getElementById('nome').value.trim();
+  const cId   = document.getElementById('conselheiro').value;
+  const a1    = document.getElementById('assoc1').value;
+  const a2    = document.getElementById('assoc2').value;
 
-  if (!nome)  { flash('Informe o nome da unidade.', 'error'); return; }
-  if (!cId)   { flash('Selecione o conselheiro titular.', 'error'); return; }
+  if (!nome) { flash('Informe o nome da unidade.', 'error'); return; }
+  if (!cId)  { flash('Selecione o conselheiro titular.', 'error'); return; }
 
-  const payload = { nome, conselheiro_id: cId, associado1_id: a1, associado2_id: a2 };
-  const op = id
-    ? supabase.from('unidade').update(payload).eq('id', id)
-    : supabase.from('unidade').insert([payload]);
+  let unidadeId = id;
 
-  const { error } = await op;
-  if (error) { flash(error.message, 'error'); return; }
+  if (id) {
+    const { error } = await db.from('unidade').update({ nome }).eq('id', id);
+    if (error) { flash(error.message, 'error'); return; }
+    // Remove membros antigos para reinserir
+    await db.from('unidade_membro').delete().eq('unidade_id', id);
+  } else {
+    const { data, error } = await db.from('unidade').insert([{ nome }]).select().single();
+    if (error) { flash(error.message, 'error'); return; }
+    unidadeId = data.id;
+  }
+
+  // Insere membros na tabela unidade_membro
+  const membros = [{ unidade_id: unidadeId, conselheiro_id: cId, tipo: 'conselheiro' }];
+  if (a1) membros.push({ unidade_id: unidadeId, conselheiro_id: a1, tipo: 'associado' });
+  if (a2) membros.push({ unidade_id: unidadeId, conselheiro_id: a2, tipo: 'associado' });
+
+  const { error: errMem } = await db.from('unidade_membro').insert(membros);
+  if (errMem) { flash('Unidade salva, mas erro ao vincular membros: ' + errMem.message, 'error'); return; }
 
   flash(id ? 'Unidade atualizada!' : 'Unidade cadastrada!');
   cancelar();
@@ -165,7 +197,6 @@ document.getElementById('btnSalvar').addEventListener('click', async () => {
 });
 
 document.getElementById('btnCancelar').addEventListener('click', cancelar);
-
 carregarConselheiros();
 listar();
 </script>

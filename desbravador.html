@@ -11,7 +11,7 @@
 
 <nav class="navbar">
   <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
-  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="db.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
 </nav>
 
 <div class="page-wide fade-in">
@@ -88,9 +88,9 @@ let todosDesb = [];
 
 async function carregarDrops() {
   const [u, c, e] = await Promise.all([
-    supabase.from('unidade').select('*').order('nome'),
-    supabase.from('classe').select('*').order('nome'),
-    supabase.from('especialidades').select('*').order('nome'),
+    db.from('unidade').select('*').order('nome'),
+    db.from('classe').select('*').order('nome'),
+    db.from('especialidades').select('*').order('nome'),
   ]);
 
   document.getElementById('unidade').innerHTML = '<option value="">Selecione...</option>' +
@@ -110,7 +110,7 @@ async function carregarDrops() {
 }
 
 async function listar() {
-  const { data } = await supabase.from('desbravador')
+  const { data } = await db.from('desbravador')
     .select('*, unidade(nome), classe(nome)')
     .order('nome');
   todosDesb = data || [];
@@ -146,8 +146,8 @@ document.getElementById('busca').addEventListener('input', e => {
 });
 
 async function editar(id) {
-  const { data: d } = await supabase.from('desbravador').select('*').eq('id', id).single();
-  const { data: es } = await supabase.from('desbravador_especialidade').select('especialidade_id').eq('desbravador_id', id);
+  const { data: d } = await db.from('desbravador').select('*').eq('id', id).single();
+  const { data: es } = await db.from('desbravador_especialidade').select('especialidade_id').eq('desbravador_id', id);
 
   document.getElementById('editId').value = id;
   document.getElementById('nome').value = d.nome;
@@ -182,9 +182,9 @@ function cancelar() {
 
 async function excluir(id) {
   if (!confirm('Excluir este desbravador e todos os seus registros?')) return;
-  await supabase.from('desbravador_especialidade').delete().eq('desbravador_id', id);
-  await supabase.from('mensalidade').delete().eq('desbravador_id', id);
-  const { error } = await supabase.from('desbravador').delete().eq('id', id);
+  await db.from('desbravador_especialidade').delete().eq('desbravador_id', id);
+  await db.from('mensalidade').delete().eq('desbravador_id', id);
+  const { error } = await db.from('desbravador').delete().eq('id', id);
   if (error) flash('Erro: ' + error.message, 'error');
   else { flash('Desbravador excluído.'); listar(); }
 }
@@ -206,18 +206,18 @@ document.getElementById('btnSalvar').addEventListener('click', async () => {
 
   let desbrId = id;
   if (id) {
-    const { error } = await supabase.from('desbravador').update(payload).eq('id', id);
+    const { error } = await db.from('desbravador').update(payload).eq('id', id);
     if (error) { flash(error.message, 'error'); return; }
   } else {
-    const { data, error } = await supabase.from('desbravador').insert([payload]).select().single();
+    const { data, error } = await db.from('desbravador').insert([payload]).select().single();
     if (error) { flash(error.message, 'error'); return; }
     desbrId = data.id;
   }
 
   // Sync especialidades
-  await supabase.from('desbravador_especialidade').delete().eq('desbravador_id', desbrId);
+  await db.from('desbravador_especialidade').delete().eq('desbravador_id', desbrId);
   if (esIds.length) {
-    await supabase.from('desbravador_especialidade').insert(
+    await db.from('desbravador_especialidade').insert(
       esIds.map(e => ({ desbravador_id: desbrId, especialidade_id: e, concluida: true }))
     );
   }
