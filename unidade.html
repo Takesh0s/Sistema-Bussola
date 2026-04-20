@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sistema Bússola — Unidades</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+</nav>
+
+<div class="page-wide fade-in">
+  <div class="page-title-bar">
+    <a class="back-btn" href="dashboard.html">←</a>
+    <div><h1>🏕️ Gestão de Unidades</h1><p>Cadastrar e gerenciar as unidades do clube</p></div>
+  </div>
+
+  <div class="two-col">
+    <!-- Form -->
+    <div class="card">
+      <div class="card-header">
+        <div class="icon">🏕️</div>
+        <div><h2 id="formTitle">Nova Unidade</h2></div>
+      </div>
+
+      <input type="hidden" id="editId"/>
+
+      <div class="form-group"><label>Nome da Unidade</label><input type="text" id="nome" placeholder="Ex: Unidade Águias"/></div>
+      <div class="form-group">
+        <label>Conselheiro Titular</label>
+        <select id="conselheiro"><option value="">Selecione...</option></select>
+      </div>
+      <div class="form-group">
+        <label>Associado 1 <span style="color:var(--c-muted);font-weight:400">(opcional)</span></label>
+        <select id="assoc1"><option value="">Nenhum</option></select>
+      </div>
+      <div class="form-group">
+        <label>Associado 2 <span style="color:var(--c-muted);font-weight:400">(opcional)</span></label>
+        <select id="assoc2"><option value="">Nenhum</option></select>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-primary" id="btnSalvar">Cadastrar Unidade</button>
+        <button class="btn btn-secondary" id="btnCancelar" style="display:none">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- List -->
+    <div class="card">
+      <div class="card-header">
+        <div class="icon">📋</div>
+        <div><h2>Unidades Cadastradas</h2></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Unidade</th><th>Conselheiro</th><th>Associados</th><th></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="supabase.js"></script>
+<script src="utils.js"></script>
+<script>
+requireAuth();
+
+let conselheiros = [];
+
+async function carregarConselheiros() {
+  const { data } = await supabase.from('conselheiro').select('*').order('nome');
+  conselheiros = data || [];
+  const opts = conselheiros.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+  document.getElementById('conselheiro').innerHTML = '<option value="">Selecione...</option>' + opts;
+  document.getElementById('assoc1').innerHTML = '<option value="">Nenhum</option>' + opts;
+  document.getElementById('assoc2').innerHTML = '<option value="">Nenhum</option>' + opts;
+}
+
+async function listar() {
+  const { data } = await supabase.from('unidade')
+    .select('*, conselheiro:conselheiro_id(nome), assoc1:associado1_id(nome), assoc2:associado2_id(nome)')
+    .order('nome');
+
+  const tbody = document.getElementById('tbody');
+  if (!data?.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">🏕️</div><p>Nenhuma unidade cadastrada.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(u => `
+    <tr>
+      <td><strong>${u.nome}</strong></td>
+      <td>${u.conselheiro?.nome || '—'}</td>
+      <td style="font-size:.8rem;color:var(--c-muted)">
+        ${[u.assoc1?.nome, u.assoc2?.nome].filter(Boolean).join(', ') || '—'}
+      </td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-icon" title="Editar" onclick="editar('${u.id}','${u.nome}','${u.conselheiro_id||''}','${u.associado1_id||''}','${u.associado2_id||''}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="excluir('${u.id}')">Excluir</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function editar(id, nome, cId, a1, a2) {
+  document.getElementById('editId').value = id;
+  document.getElementById('nome').value = nome;
+  document.getElementById('conselheiro').value = cId;
+  document.getElementById('assoc1').value = a1;
+  document.getElementById('assoc2').value = a2;
+  document.getElementById('formTitle').textContent = 'Editar Unidade';
+  document.getElementById('btnSalvar').textContent = 'Salvar Alterações';
+  document.getElementById('btnCancelar').style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelar() {
+  document.getElementById('editId').value = '';
+  document.getElementById('nome').value = '';
+  document.getElementById('conselheiro').value = '';
+  document.getElementById('assoc1').value = '';
+  document.getElementById('assoc2').value = '';
+  document.getElementById('formTitle').textContent = 'Nova Unidade';
+  document.getElementById('btnSalvar').textContent = 'Cadastrar Unidade';
+  document.getElementById('btnCancelar').style.display = 'none';
+}
+
+async function excluir(id) {
+  if (!confirm('Excluir esta unidade? Os desbravadores vinculados ficarão sem unidade.')) return;
+  const { error } = await supabase.from('unidade').delete().eq('id', id);
+  if (error) flash('Erro: ' + error.message, 'error');
+  else { flash('Unidade excluída.'); listar(); }
+}
+
+document.getElementById('btnSalvar').addEventListener('click', async () => {
+  const id      = document.getElementById('editId').value;
+  const nome    = document.getElementById('nome').value.trim();
+  const cId     = document.getElementById('conselheiro').value;
+  const a1      = document.getElementById('assoc1').value || null;
+  const a2      = document.getElementById('assoc2').value || null;
+
+  if (!nome)  { flash('Informe o nome da unidade.', 'error'); return; }
+  if (!cId)   { flash('Selecione o conselheiro titular.', 'error'); return; }
+
+  const payload = { nome, conselheiro_id: cId, associado1_id: a1, associado2_id: a2 };
+  const op = id
+    ? supabase.from('unidade').update(payload).eq('id', id)
+    : supabase.from('unidade').insert([payload]);
+
+  const { error } = await op;
+  if (error) { flash(error.message, 'error'); return; }
+
+  flash(id ? 'Unidade atualizada!' : 'Unidade cadastrada!');
+  cancelar();
+  listar();
+});
+
+document.getElementById('btnCancelar').addEventListener('click', cancelar);
+
+carregarConselheiros();
+listar();
+</script>
+</body>
+</html>
