@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sistema Bússola — Relatórios</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+</nav>
+
+<div class="page-wide fade-in">
+  <div class="page-title-bar">
+    <a class="back-btn" href="dashboard.html">←</a>
+    <div><h1>📊 Relatórios do Clube</h1><p>Gere documentos PDF oficiais do clube</p></div>
+  </div>
+
+  <!-- Filtro de unidade para autorização de saída -->
+  <div class="card" style="max-width:500px;margin-bottom:24px" id="cardSaida">
+    <div class="card-header">
+      <div class="icon">🚌</div>
+      <div><h2>Autorização de Saída</h2><p>Selecione a unidade para gerar o formulário</p></div>
+    </div>
+    <div class="form-group"><label>Unidade</label>
+      <select id="selUnidade"><option value="">Carregando...</option></select>
+    </div>
+    <button class="btn btn-primary" onclick="gerarSaida()">📄 Gerar PDF de Autorização</button>
+  </div>
+
+  <div class="report-grid">
+    <div class="report-card" onclick="gerarFluxoCaixa()">
+      <div class="r-icon">💰</div>
+      <div class="r-name">Fluxo de Caixa</div>
+      <div class="r-desc">Extrato completo com entradas, saídas e saldo</div>
+    </div>
+    <div class="report-card" onclick="gerarPatrimonio()">
+      <div class="r-icon">📦</div>
+      <div class="r-name">Patrimônio</div>
+      <div class="r-desc">Inventário completo de bens do clube</div>
+    </div>
+    <div class="report-card" onclick="gerarAtasAtos()">
+      <div class="r-icon">📚</div>
+      <div class="r-name">Livro de Atas e Atos</div>
+      <div class="r-desc">Todos os registros oficiais do clube</div>
+    </div>
+    <div class="report-card" onclick="gerarMensalidades()">
+      <div class="r-icon">💳</div>
+      <div class="r-name">Mensalidades</div>
+      <div class="r-desc">Situação de pagamentos de todos os membros</div>
+    </div>
+    <div class="report-card" onclick="gerarGeral()">
+      <div class="r-icon">📊</div>
+      <div class="r-name">Relatório Geral</div>
+      <div class="r-desc">Visão consolidada do clube: unidades, classes e desbravadores</div>
+    </div>
+  </div>
+</div>
+
+<script src="supabase.js"></script>
+<script src="utils.js"></script>
+<script>
+requireAuth();
+
+const { jsPDF } = window.jspdf;
+
+// Cabeçalho padrão dos PDFs
+function cabecalho(doc, titulo) {
+  doc.setFillColor(6, 182, 212);
+  doc.rect(0, 0, 210, 22, 'F');
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('🧭 Sistema Bússola', 14, 10);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Plataforma de Administração para Clubes de Desbravadores', 14, 16);
+
+  doc.setTextColor(40, 40, 40);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text(titulo, 14, 34);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 40);
+
+  return 48; // Y inicial do conteúdo
+}
+
+function rodape(doc) {
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Sistema Bússola — Página ${i} de ${pages}`, 105, 290, { align: 'center' });
+  }
+}
+
+// ── Autorização de Saída ────────────────────────────────────
+async function carregarUnidades() {
+  const { data } = await supabase.from('unidade').select('id, nome').order('nome');
+  document.getElementById('selUnidade').innerHTML = '<option value="">Selecione uma unidade...</option>' +
+    (data||[]).map(u => `<option value="${u.id}">${u.nome}</option>`).join('');
+}
+
+async function gerarSaida() {
+  const unidadeId = document.getElementById('selUnidade').value;
+  if (!unidadeId) { flash('Selecione a unidade.', 'error'); return; }
+
+  const { data: unidade } = await supabase.from('unidade')
+    .select('nome, conselheiro:conselheiro_id(nome)').eq('id', unidadeId).single();
+  const { data: desb } = await supabase.from('desbravador')
+    .select('nome, data_nascimento, contato').eq('unidade_id', unidadeId).order('nome');
+
+  const doc = new jsPDF();
+  let y = cabecalho(doc, 'Autorização de Saída');
+
+  doc.setFontSize(11); doc.setTextColor(40,40,40); doc.setFont('helvetica','bold');
+  doc.text(`Unidade: ${unidade.nome}`, 14, y + 6);
+  doc.setFont('helvetica','normal');
+  doc.text(`Conselheiro: ${unidade.conselheiro?.nome || '—'}`, 14, y + 14);
+  y += 22;
+
+  doc.autoTable({
+    startY: y,
+    head: [['Nome do Desbravador', 'Data de Nascimento', 'Contato/Responsável', 'Assinatura do Responsável']],
+    body: (desb||[]).map(d => [d.nome, fmtDate(d.data_nascimento), d.contato || '—', '']),
+    styles: { fontSize: 9, cellPadding: 5 },
+    headStyles: { fillColor: [6, 182, 212], textColor: 0, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [240, 253, 255] },
+    columnStyles: { 3: { cellWidth: 50 } },
+  });
+
+  // Assinaturas
+  const finalY = doc.lastAutoTable.finalY + 20;
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.line(14, finalY + 15, 90, finalY + 15);
+  doc.line(120, finalY + 15, 196, finalY + 15);
+  doc.text('Assinatura do Diretor', 14, finalY + 20);
+  doc.text('Assinatura do Conselheiro', 120, finalY + 20);
+
+  rodape(doc);
+  doc.save(`autorizacao_saida_${unidade.nome.replace(/\s+/g,'_')}.pdf`);
+  flash('PDF gerado!');
+}
+
+// ── Fluxo de Caixa ──────────────────────────────────────────
+async function gerarFluxoCaixa() {
+  const { data } = await supabase.from('caixa').select('*').order('data');
+
+  const doc = new jsPDF();
+  let y = cabecalho(doc, 'Relatório de Fluxo de Caixa');
+
+  const totalE = (data||[]).filter(c=>c.tipo==='entrada').reduce((s,c)=>s+ +c.valor,0);
+  const totalS = (data||[]).filter(c=>c.tipo==='saida').reduce((s,c)=>s+ +c.valor,0);
+  const saldo  = totalE - totalS;
+
+  // Summary boxes
+  doc.setFillColor(240, 253, 244); doc.roundedRect(14, y, 55, 18, 3, 3, 'F');
+  doc.setFillColor(255, 241, 242); doc.roundedRect(77, y, 55, 18, 3, 3, 'F');
+  doc.setFillColor(240, 253, 255); doc.roundedRect(140, y, 55, 18, 3, 3, 'F');
+
+  doc.setFontSize(7); doc.setTextColor(80,80,80);
+  doc.text('TOTAL ENTRADAS', 41, y + 5, { align:'center' });
+  doc.text('TOTAL SAÍDAS', 104, y + 5, { align:'center' });
+  doc.text('SALDO FINAL', 167, y + 5, { align:'center' });
+
+  doc.setFontSize(11); doc.setFont('helvetica','bold');
+  doc.setTextColor(16,185,129); doc.text(brl(totalE), 41, y + 14, { align:'center' });
+  doc.setTextColor(244,63,94);  doc.text(brl(totalS), 104, y + 14, { align:'center' });
+  doc.setTextColor(saldo>=0?16:244, saldo>=0?185:63, saldo>=0?129:94);
+  doc.text(brl(saldo), 167, y + 14, { align:'center' });
+  y += 28;
+
+  doc.autoTable({
+    startY: y,
+    head: [['Data', 'Tipo', 'Descrição', 'Valor']],
+    body: (data||[]).map(c => [
+      fmtDate(c.data),
+      c.tipo === 'entrada' ? 'Entrada' : 'Saída',
+      c.descricao,
+      (c.tipo==='entrada'?'+':'-') + brl(c.valor)
+    ]),
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: [6,182,212], textColor: 0, fontStyle:'bold' },
+    alternateRowStyles: { fillColor: [248,250,252] },
+    columnStyles: { 3: { halign:'right', fontStyle:'bold' } },
+  });
+
+  rodape(doc);
+  doc.save('fluxo_caixa.pdf');
+  flash('PDF gerado!');
+}
+
+// ── Patrimônio ──────────────────────────────────────────────
+async function gerarPatrimonio() {
+  const { data } = await supabase.from('patrimonio')
+    .select('*, unidade:unidade_id(nome)').order('item');
+
+  const doc = new jsPDF();
+  let y = cabecalho(doc, 'Relatório de Patrimônio');
+
+  doc.autoTable({
+    startY: y,
+    head: [['Item', 'Quantidade', 'Estado', 'Unidade']],
+    body: (data||[]).map(p => [p.item, p.quantidade, p.estado, p.unidade?.nome || 'Geral']),
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: [6,182,212], textColor: 0, fontStyle:'bold' },
+    alternateRowStyles: { fillColor: [248,250,252] },
+  });
+
+  const total = (data||[]).reduce((s,p)=>s+p.quantidade,0);
+  const finalY = doc.lastAutoTable.finalY + 8;
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); doc.setTextColor(40,40,40);
+  doc.text(`Total de itens: ${data?.length||0} tipos | ${total} unidades`, 14, finalY);
+
+  rodape(doc);
+  doc.save('patrimonio.pdf');
+  flash('PDF gerado!');
+}
+
+// ── Atas e Atos ─────────────────────────────────────────────
+async function gerarAtasAtos() {
+  const [atas, atos] = await Promise.all([
+    supabase.from('atas').select('*').order('data'),
+    supabase.from('atos').select('*').order('data'),
+  ]);
+
+  const doc = new jsPDF();
+  let y = cabecalho(doc, 'Livro de Atas e Atos');
+
+  const todos = [
+    ...(atas.data||[]).map(a=>({...a,tipo:'Ata'})),
+    ...(atos.data||[]).map(a=>({...a,tipo:'Ato'})),
+  ].sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+
+  doc.autoTable({
+    startY: y,
+    head: [['Tipo', 'Data', 'Título', 'Conteúdo (resumo)']],
+    body: todos.map(r => [
+      r.tipo, fmtDate(r.data), r.titulo,
+      r.conteudo ? (r.conteudo.length > 80 ? r.conteudo.substring(0,80)+'…' : r.conteudo) : '—'
+    ]),
+    styles: { fontSize: 8, cellPadding: 4 },
+    headStyles: { fillColor: [6,182,212], textColor: 0, fontStyle:'bold' },
+    alternateRowStyles: { fillColor: [248,250,252] },
+    columnStyles: { 3: { cellWidth: 80 } },
+  });
+
+  // Conteúdo completo
+  todos.forEach(r => {
+    doc.addPage();
+    let py = 20;
+    doc.setFillColor(6,182,212); doc.rect(0,0,210,14,'F');
+    doc.setTextColor(0,0,0); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text(`${r.tipo}: ${r.titulo}`, 14, 9);
+    doc.setTextColor(40,40,40); doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.text(`${r.tipo} — ${fmtDate(r.data)}`, 14, py + 4);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text(r.titulo, 14, py + 14);
+    py += 24;
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    const linhas = doc.splitTextToSize(r.conteudo || '', 182);
+    doc.text(linhas, 14, py);
+  });
+
+  rodape(doc);
+  doc.save('livro_atas_atos.pdf');
+  flash('PDF gerado!');
+}
+
+// ── Mensalidades ────────────────────────────────────────────
+async function gerarMensalidades() {
+  const { data } = await supabase.from('mensalidade')
+    .select('*, desbravador:desbravador_id(nome)')
+    .order('ano', { ascending: false }).order('mes', { ascending: false });
+
+  const doc = new jsPDF();
+  let y = cabecalho(doc, 'Relatório de Mensalidades');
+
+  const pagos   = (data||[]).filter(m=>m.pago).length;
+  const abertos = (data||[]).length - pagos;
+  const totalVal = (data||[]).filter(m=>m.pago).reduce((s,m)=>s+ +m.valor,0);
+
+  doc.setFontSize(9); doc.setTextColor(80,80,80); doc.setFont('helvetica','normal');
+  doc.text(`Total registros: ${data?.length||0}  |  Pagos: ${pagos}  |  Em aberto: ${abertos}  |  Total arrecadado: ${brl(totalVal)}`, 14, y);
+  y += 10;
+
+  doc.autoTable({
+    startY: y,
+    head: [['Desbravador', 'Mês', 'Ano', 'Valor', 'Status']],
+    body: (data||[]).map(m => [
+      m.desbravador?.nome || '—',
+      MESES[m.mes], m.ano, brl(m.valor),
+      m.pago ? 'Pago' : 'Em aberto'
+    ]),
+    styles: { fontSize: 8.5, cellPadding: 4 },
+    headStyles: { fillColor: [6,182,212], textColor: 0, fontStyle:'bold' },
+    alternateRowStyles: { fillColor: [248,250,252] },
+    bodyStyles: {},
+    didParseCell: (data) => {
+      if (data.column.index === 4 && data.cell.raw === 'Pago') {
+        data.cell.styles.textColor = [16,185,129]; data.cell.styles.fontStyle = 'bold';
+      } else if (data.column.index === 4 && data.cell.raw === 'Em aberto') {
+        data.cell.styles.textColor = [244,63,94]; data.cell.styles.fontStyle = 'bold';
+      }
+    },
+  });
+
+  rodape(doc);
+  doc.save('mensalidades.pdf');
+  flash('PDF gerado!');
+}
+
+// ── Relatório Geral ─────────────────────────────────────────
+async function gerarGeral() {
+  const [u, cl, e, d] = await Promise.all([
+    supabase.from('unidade').select('*, conselheiro:conselheiro_id(nome)').order('nome'),
+    supabase.from('classe').select('*').order('nome'),
+    supabase.from('especialidades').select('*').order('nome'),
+    supabase.from('desbravador').select('*, unidade(nome), classe(nome)').order('nome'),
+  ]);
+
+  const doc = new jsPDF();
+  let y = cabecalho(doc, 'Relatório Geral do Clube');
+
+  // Stats
+  doc.setFontSize(9); doc.setTextColor(80,80,80);
+  doc.text(`Unidades: ${u.data?.length||0}   Desbravadores: ${d.data?.length||0}   Classes: ${cl.data?.length||0}   Especialidades: ${e.data?.length||0}`, 14, y);
+  y += 12;
+
+  // Unidades
+  doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(6,182,212);
+  doc.text('Unidades', 14, y); y += 6;
+  doc.autoTable({
+    startY: y,
+    head: [['Unidade', 'Conselheiro Titular']],
+    body: (u.data||[]).map(x => [x.nome, x.conselheiro?.nome || '—']),
+    styles: { fontSize: 8.5, cellPadding: 3 },
+    headStyles: { fillColor: [6,182,212], textColor: 0 },
+    alternateRowStyles: { fillColor: [248,250,252] },
+    margin: { left:14, right:14 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Classes
+  doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(6,182,212);
+  doc.text('Classes', 14, y); y += 6;
+  doc.autoTable({
+    startY: y,
+    head: [['Classe', 'Faixa Etária']],
+    body: (cl.data||[]).map(x => [x.nome, x.descricao || '—']),
+    styles: { fontSize: 8.5, cellPadding: 3 },
+    headStyles: { fillColor: [6,182,212], textColor: 0 },
+    alternateRowStyles: { fillColor: [248,250,252] },
+    margin: { left:14, right:14 },
+  });
+  y = doc.lastAutoTable.finalY + 10;
+
+  // Especialidades
+  if (y > 220) { doc.addPage(); y = 20; }
+  doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(6,182,212);
+  doc.text('Especialidades', 14, y); y += 6;
+  doc.autoTable({
+    startY: y,
+    head: [['Especialidade', 'Descrição']],
+    body: (e.data||[]).map(x => [x.nome, x.descricao || '—']),
+    styles: { fontSize: 8, cellPadding: 3 },
+    headStyles: { fillColor: [6,182,212], textColor: 0 },
+    alternateRowStyles: { fillColor: [248,250,252] },
+    margin: { left:14, right:14 },
+  });
+
+  // Desbravadores (nova página)
+  doc.addPage();
+  y = 20;
+  doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(6,182,212);
+  doc.text('Desbravadores', 14, y); y += 6;
+  doc.autoTable({
+    startY: y,
+    head: [['Nome', 'Unidade', 'Classe', 'Nascimento', 'Contato']],
+    body: (d.data||[]).map(x => [x.nome, x.unidade?.nome||'—', x.classe?.nome||'—', fmtDate(x.data_nascimento), x.contato||'—']),
+    styles: { fontSize: 8, cellPadding: 3 },
+    headStyles: { fillColor: [6,182,212], textColor: 0 },
+    alternateRowStyles: { fillColor: [248,250,252] },
+    margin: { left:14, right:14 },
+  });
+
+  rodape(doc);
+  doc.save('relatorio_geral.pdf');
+  flash('PDF gerado!');
+}
+
+carregarUnidades();
+</script>
+</body>
+</html>
