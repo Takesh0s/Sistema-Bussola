@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sistema Bússola — Atas e Atos</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+</nav>
+
+<div class="page-wide fade-in">
+  <div class="page-title-bar">
+    <a class="back-btn" href="dashboard.html">←</a>
+    <div><h1>📋 Atas e Atos</h1><p>Registros oficiais do clube</p></div>
+  </div>
+
+  <div class="two-col">
+    <!-- Form -->
+    <div class="card">
+      <div class="card-header">
+        <div class="icon">📋</div>
+        <div><h2 id="formTitle">Novo Registro</h2></div>
+      </div>
+
+      <input type="hidden" id="editId"/>
+      <input type="hidden" id="editTipo"/>
+
+      <div class="form-group"><label>Tipo</label>
+        <select id="tipo">
+          <option value="">Selecione...</option>
+          <option value="ata">📄 Ata de Reunião</option>
+          <option value="ato">📜 Ato Administrativo</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Título</label>
+        <input type="text" id="titulo" placeholder="Título do documento"/>
+      </div>
+      <div class="form-group"><label>Conteúdo</label>
+        <textarea id="conteudo" placeholder="Escreva o conteúdo completo aqui..." rows="6"></textarea>
+      </div>
+      <div class="form-group"><label>Data</label>
+        <input type="date" id="data"/>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn btn-primary" id="btnSalvar">Registrar</button>
+        <button class="btn btn-secondary" id="btnCancelar" style="display:none">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- List -->
+    <div class="card">
+      <div class="card-header">
+        <div class="icon">📚</div>
+        <div><h2>Registros do Clube</h2></div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:12px">
+        <button class="btn btn-secondary btn-sm" id="btnTodos" style="flex:1" onclick="filtrar('')">Todos</button>
+        <button class="btn btn-secondary btn-sm" id="btnAtas"  style="flex:1" onclick="filtrar('ata')">Atas</button>
+        <button class="btn btn-secondary btn-sm" id="btnAtos"  style="flex:1" onclick="filtrar('ato')">Atos</button>
+      </div>
+
+      <div id="listaRegistros"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de visualização -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--radius-lg);padding:32px;max-width:600px;width:100%;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <span class="badge" id="modalTipo"></span>
+        <h2 id="modalTitulo" style="margin-top:8px"></h2>
+        <p id="modalData" style="font-size:.8rem;margin-top:4px"></p>
+      </div>
+      <button class="btn btn-icon" onclick="fecharModal()" style="font-size:20px">✕</button>
+    </div>
+    <p id="modalConteudo" style="white-space:pre-wrap;line-height:1.8;font-size:.9rem;color:var(--c-text)"></p>
+  </div>
+</div>
+
+<script src="supabase.js"></script>
+<script src="utils.js"></script>
+<script>
+requireAuth();
+
+let todos = [];
+let filtroAtivo = '';
+
+async function listar() {
+  const [atas, atos] = await Promise.all([
+    supabase.from('atas').select('*').order('data', { ascending: false }),
+    supabase.from('atos').select('*').order('data', { ascending: false }),
+  ]);
+
+  todos = [
+    ...(atas.data||[]).map(a => ({ ...a, tipo: 'ata' })),
+    ...(atos.data||[]).map(a => ({ ...a, tipo: 'ato' })),
+  ].sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+
+  render(todos);
+}
+
+function filtrar(tipo) {
+  filtroAtivo = tipo;
+  render(tipo ? todos.filter(r => r.tipo === tipo) : todos);
+}
+
+function render(lista) {
+  const el = document.getElementById('listaRegistros');
+  if (!lista.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><p>Nenhum registro encontrado.</p></div>`;
+    return;
+  }
+
+  el.innerHTML = lista.map(r => `
+    <div style="background:var(--c-surface2);border:1px solid var(--c-border);border-radius:var(--radius-md);padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .2s"
+         onclick="verRegistro('${r.id}','${r.tipo}')"
+         onmouseenter="this.style.borderColor='var(--c-teal)'"
+         onmouseleave="this.style.borderColor='var(--c-border)'">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <span class="badge ${r.tipo === 'ata' ? 'badge-teal' : 'badge-amber'}" style="margin-bottom:6px">
+            ${r.tipo === 'ata' ? '📄 Ata' : '📜 Ato'}
+          </span>
+          <div style="font-weight:600;color:var(--c-text);font-size:.95rem">${r.titulo}</div>
+          <div style="font-size:.75rem;color:var(--c-muted);margin-top:4px">${fmtDate(r.data)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-icon" title="Editar" onclick="event.stopPropagation();editar('${r.id}','${r.tipo}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();excluir('${r.id}','${r.tipo}')">✕</button>
+        </div>
+      </div>
+      <p style="font-size:.8rem;color:var(--c-muted);margin-top:8px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">
+        ${r.conteudo || ''}
+      </p>
+    </div>
+  `).join('');
+}
+
+async function verRegistro(id, tipo) {
+  const tabela = tipo === 'ata' ? 'atas' : 'atos';
+  const { data } = await supabase.from(tabela).select('*').eq('id', id).single();
+  if (!data) return;
+
+  document.getElementById('modalTipo').textContent    = tipo === 'ata' ? '📄 Ata' : '📜 Ato';
+  document.getElementById('modalTipo').className      = `badge ${tipo === 'ata' ? 'badge-teal' : 'badge-amber'}`;
+  document.getElementById('modalTitulo').textContent  = data.titulo;
+  document.getElementById('modalData').textContent    = fmtDate(data.data);
+  document.getElementById('modalConteudo').textContent = data.conteudo || '';
+  document.getElementById('modal').style.display = 'flex';
+}
+
+function fecharModal() { document.getElementById('modal').style.display = 'none'; }
+document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) fecharModal(); });
+
+async function editar(id, tipo) {
+  const tabela = tipo === 'ata' ? 'atas' : 'atos';
+  const { data } = await supabase.from(tabela).select('*').eq('id', id).single();
+  if (!data) return;
+
+  document.getElementById('editId').value = id;
+  document.getElementById('editTipo').value = tipo;
+  document.getElementById('tipo').value = tipo;
+  document.getElementById('titulo').value = data.titulo;
+  document.getElementById('conteudo').value = data.conteudo || '';
+  document.getElementById('data').value = data.data || '';
+  document.getElementById('formTitle').textContent = 'Editar Registro';
+  document.getElementById('btnSalvar').textContent = 'Salvar';
+  document.getElementById('btnCancelar').style.display = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function cancelar() {
+  document.getElementById('editId').value = '';
+  document.getElementById('editTipo').value = '';
+  document.getElementById('tipo').value = '';
+  document.getElementById('titulo').value = '';
+  document.getElementById('conteudo').value = '';
+  document.getElementById('data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('formTitle').textContent = 'Novo Registro';
+  document.getElementById('btnSalvar').textContent = 'Registrar';
+  document.getElementById('btnCancelar').style.display = 'none';
+}
+
+async function excluir(id, tipo) {
+  if (!confirm('Excluir este registro?')) return;
+  const tabela = tipo === 'ata' ? 'atas' : 'atos';
+  const { error } = await supabase.from(tabela).delete().eq('id', id);
+  if (error) flash(error.message, 'error');
+  else { flash('Registro excluído.'); listar(); }
+}
+
+document.getElementById('btnSalvar').addEventListener('click', async () => {
+  const id      = document.getElementById('editId').value;
+  const tipoAnt = document.getElementById('editTipo').value;
+  const tipo    = document.getElementById('tipo').value;
+  const titulo  = document.getElementById('titulo').value.trim();
+  const conteudo = document.getElementById('conteudo').value.trim();
+  const data    = document.getElementById('data').value;
+
+  if (!tipo)    { flash('Selecione o tipo.', 'error'); return; }
+  if (!titulo)  { flash('Informe o título.', 'error'); return; }
+  if (!conteudo){ flash('Informe o conteúdo.', 'error'); return; }
+
+  const tabela = tipo === 'ata' ? 'atas' : 'atos';
+  const payload = { titulo, conteudo, data: data || new Date().toISOString().split('T')[0] };
+
+  let error;
+  if (id) {
+    // Se mudou o tipo, exclui da tabela antiga e insere na nova
+    if (tipoAnt !== tipo) {
+      await supabase.from(tipoAnt === 'ata' ? 'atas' : 'atos').delete().eq('id', id);
+      ({ error } = await supabase.from(tabela).insert([payload]));
+    } else {
+      ({ error } = await supabase.from(tabela).update(payload).eq('id', id));
+    }
+  } else {
+    ({ error } = await supabase.from(tabela).insert([payload]));
+  }
+
+  if (error) { flash(error.message, 'error'); return; }
+  flash(id ? 'Registro atualizado!' : 'Registro salvo!');
+  cancelar(); listar();
+});
+
+document.getElementById('btnCancelar').addEventListener('click', cancelar);
+
+// Data default
+document.getElementById('data').value = new Date().toISOString().split('T')[0];
+listar();
+</script>
+</body>
+</html>
