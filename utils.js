@@ -2,7 +2,7 @@
 
 /** Redireciona para login se não houver sessão */
 async function requireAuth() {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await db.auth.getSession();
   if (!data.session) { window.location.href = 'index.html'; }
   return data.session;
 }
