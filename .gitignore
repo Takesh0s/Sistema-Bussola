@@ -1,0 +1,102 @@
+# =============================================================================
+#  .gitignore — Sistema Bússola
+#  Plataforma de Administração para Clubes de Desbravadores
+# =============================================================================
+
+# ── Script de deploy (não faz parte da aplicação web) ────────────────────────
+commits.sh
+
+# ── Credenciais e variáveis de ambiente (NUNCA commitar) ─────────────────────
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+
+# ── Dependências de desenvolvimento ──────────────────────────────────────────
+# (jsPDF e Supabase são carregados via CDN — node_modules é só para ferramentas locais)
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ── Ferramentas de build (caso use Vite, Parcel, etc. no futuro) ─────────────
+dist/
+build/
+.cache/
+.parcel-cache/
+.vite/
+
+# ── Arquivos de sistema operacional ──────────────────────────────────────────
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ── Editores e IDEs ───────────────────────────────────────────────────────────
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+
+# JetBrains (WebStorm, IntelliJ)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim / Neovim
+*.swp
+*.swo
+*.swn
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+Session.vim
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+
+# ── Logs e arquivos temporários ───────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+*.tmp
+*.temp
+*.bak
+*.orig
+
+# ── PDFs gerados pelo sistema (são gerados em runtime, não pertencem ao repo) ─
+# Descomente as linhas abaixo se não quiser versionar os PDFs de exemplo:
+# *.pdf
+
+# ── Arquivos de teste e cobertura ─────────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ── Outros ───────────────────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.rar
+thumbs.db
