@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sistema Bússola — Caixa</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar">
+  <a class="navbar-brand" href="dashboard.html"><span class="compass">🧭</span><div><span>Sistema Bússola</span></div></a>
+  <div class="navbar-actions"><button class="btn btn-danger btn-sm" onclick="supabase.auth.signOut().then(()=>location.href='index.html')">Sair</button></div>
+</nav>
+
+<div class="page-wide fade-in">
+  <div class="page-title-bar">
+    <a class="back-btn" href="dashboard.html">←</a>
+    <div><h1>💰 Controle de Caixa</h1><p>Entradas e saídas financeiras do clube</p></div>
+  </div>
+
+  <!-- Saldo cards -->
+  <div class="saldo-bar">
+    <div class="saldo-item green">
+      <div class="s-label">Total Entradas</div>
+      <div class="s-val" id="totalEntrada">—</div>
+    </div>
+    <div class="saldo-item red">
+      <div class="s-label">Total Saídas</div>
+      <div class="s-val" id="totalSaida">—</div>
+    </div>
+    <div class="saldo-item teal">
+      <div class="s-label">Saldo Atual</div>
+      <div class="s-val" id="saldoAtual">—</div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- Form -->
+    <div class="card">
+      <div class="card-header">
+        <div class="icon">💰</div>
+        <div><h2>Nova Movimentação</h2></div>
+      </div>
+
+      <div class="form-group"><label>Tipo</label>
+        <select id="tipo">
+          <option value="">Selecione...</option>
+          <option value="entrada">📈 Entrada</option>
+          <option value="saida">📉 Saída</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Descrição</label>
+        <input type="text" id="descricao" placeholder="Ex: Mensalidades de outubro"/>
+      </div>
+      <div class="form-group"><label>Valor (R$)</label>
+        <input type="number" id="valor" placeholder="0,00" min="0" step="0.01"/>
+      </div>
+      <div class="form-group"><label>Data</label>
+        <input type="date" id="data"/>
+      </div>
+
+      <button class="btn btn-primary" id="btnRegistrar">Registrar Movimentação</button>
+    </div>
+
+    <!-- List -->
+    <div class="card">
+      <div class="card-header">
+        <div class="icon">📋</div>
+        <div><h2>Histórico de Movimentações</h2></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <select id="filtroTipo" style="margin:0">
+          <option value="">Todos os tipos</option>
+          <option value="entrada">Entradas</option>
+          <option value="saida">Saídas</option>
+        </select>
+        <input type="month" id="filtroMes" style="margin:0"/>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="supabase.js"></script>
+<script src="utils.js"></script>
+<script>
+requireAuth();
+
+let todos = [];
+
+async function listar() {
+  const { data } = await supabase.from('caixa').select('*').order('data', { ascending: false });
+  todos = data || [];
+  calcularSaldos(todos);
+  aplicarFiltros();
+}
+
+function calcularSaldos(lista) {
+  const entrada = lista.filter(c => c.tipo === 'entrada').reduce((s, c) => s + +c.valor, 0);
+  const saida   = lista.filter(c => c.tipo === 'saida').reduce((s, c) => s + +c.valor, 0);
+  const saldo   = entrada - saida;
+
+  document.getElementById('totalEntrada').textContent = brl(entrada);
+  document.getElementById('totalSaida').textContent   = brl(saida);
+  const el = document.getElementById('saldoAtual');
+  el.textContent = brl(saldo);
+  el.style.color = saldo >= 0 ? 'var(--c-green)' : 'var(--c-red)';
+}
+
+function aplicarFiltros() {
+  const tipo = document.getElementById('filtroTipo').value;
+  const mes  = document.getElementById('filtroMes').value;
+
+  let lista = todos;
+  if (tipo) lista = lista.filter(c => c.tipo === tipo);
+  if (mes)  lista = lista.filter(c => c.data?.startsWith(mes));
+
+  const tbody = document.getElementById('tbody');
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><p>Nenhuma movimentação encontrada.</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = lista.map(c => `
+    <tr>
+      <td style="font-size:.82rem;color:var(--c-muted)">${fmtDate(c.data)}</td>
+      <td>
+        <span class="badge ${c.tipo === 'entrada' ? 'badge-green' : 'badge-red'}">
+          ${c.tipo === 'entrada' ? '📈 Entrada' : '📉 Saída'}
+        </span>
+      </td>
+      <td>${c.descricao}</td>
+      <td style="font-family:var(--font-mono);font-weight:600;color:${c.tipo === 'entrada' ? 'var(--c-green)' : 'var(--c-red)'}">
+        ${c.tipo === 'entrada' ? '+' : '-'}${brl(c.valor)}
+      </td>
+      <td>
+        <button class="btn btn-danger btn-sm" onclick="excluir('${c.id}')">✕</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function excluir(id) {
+  if (!confirm('Excluir esta movimentação?')) return;
+  const { error } = await supabase.from('caixa').delete().eq('id', id);
+  if (error) flash(error.message, 'error');
+  else { flash('Movimentação excluída.'); listar(); }
+}
+
+document.getElementById('filtroTipo').addEventListener('change', aplicarFiltros);
+document.getElementById('filtroMes').addEventListener('change', aplicarFiltros);
+
+document.getElementById('btnRegistrar').addEventListener('click', async () => {
+  const tipo     = document.getElementById('tipo').value;
+  const descricao = document.getElementById('descricao').value.trim();
+  const valor    = parseFloat(document.getElementById('valor').value);
+  const data     = document.getElementById('data').value;
+
+  if (!tipo)              { flash('Selecione o tipo.', 'error'); return; }
+  if (!descricao)         { flash('Informe a descrição.', 'error'); return; }
+  if (isNaN(valor) || valor <= 0) { flash('Informe um valor válido.', 'error'); return; }
+
+  const { error } = await supabase.from('caixa').insert([{
+    tipo, descricao, valor, data: data || new Date().toISOString().split('T')[0]
+  }]);
+
+  if (error) { flash(error.message, 'error'); return; }
+
+  flash('Movimentação registrada!');
+  document.getElementById('tipo').value = '';
+  document.getElementById('descricao').value = '';
+  document.getElementById('valor').value = '';
+  document.getElementById('data').value = '';
+  listar();
+});
+
+// Data default: hoje
+document.getElementById('data').value = new Date().toISOString().split('T')[0];
+listar();
+</script>
+</body>
+</html>
