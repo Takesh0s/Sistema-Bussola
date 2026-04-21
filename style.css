@@ -419,13 +419,111 @@ tbody tr:hover { background:rgba(6,182,212,.04); }
   .sidebar.open { transform:translateX(0); }
   .sidebar-overlay.open { display:block; }
   .sidebar-toggle { display:flex; }
-  .main-content { margin-left:0; padding:20px 16px 60px; }
-  .two-col { grid-template-columns:1fr; }
-  .saldo-bar { grid-template-columns:1fr; }
-  .dash-grid { grid-template-columns:repeat(2,1fr); }
+
+  /* Main content: top padding gives room for the toggle button */
+  .main-content {
+    margin-left: 0;
+    padding: 64px 16px 80px;
+  }
+
+  /* All two-column layouts stack vertically */
+  .two-col { grid-template-columns: 1fr; }
+
+  /* Saldo bar: 3 cols side by side still fits on tablet, stack on phone */
+  .saldo-bar { grid-template-columns: repeat(3,1fr); }
+
+  /* Dashboard grid: 2 cols */
+  .dash-grid { grid-template-columns: repeat(2,1fr); }
+
+  /* Stats bar: 2 cols */
+  .stats-bar { grid-template-columns: repeat(2,1fr); }
+
+  /* Page header: stack on mobile if content is wide */
+  .page-header {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  /* Tables: allow horizontal scroll, don't shrink text too aggressively */
+  .table-wrap { -webkit-overflow-scrolling: touch; }
+  td, th { white-space: nowrap; }
+
+  /* Cards: reduce padding */
+  .card { padding: 18px 14px; }
+
+  /* Modal: full-width with safe margins */
+  .modal-box {
+    padding: 20px 16px;
+    max-height: 90vh;
+    border-radius: var(--radius-md);
+  }
+
+  /* Report grid: 2 cols */
+  .report-grid { grid-template-columns: repeat(2,1fr); }
+
+  /* Auth card: tighter padding */
+  .auth-card { padding: 28px 20px; }
+
+  /* Saldo values: smaller font to fit 3 cols */
+  .s-val { font-size: 1rem; }
+
+  /* Buttons: make touch targets bigger */
+  .btn { min-height: 42px; }
+  .btn-sm { min-height: 34px; }
 }
 
 @media (max-width:500px) {
-  .stats-bar { grid-template-columns:repeat(2,1fr); }
-  .dash-grid { grid-template-columns:1fr 1fr; }
+  .main-content { padding: 60px 12px 80px; }
+
+  /* Dashboard: keep 2 cols but smaller gap */
+  .dash-grid { grid-template-columns: repeat(2,1fr); gap: 10px; }
+  .dash-card { padding: 14px 12px; }
+  .dash-card-icon { font-size: 22px; }
+  .dash-card-label { font-size: .8rem; }
+  .dash-card-desc { font-size: .68rem; }
+
+  /* Stats: 2 cols */
+  .stats-bar { grid-template-columns: repeat(2,1fr); gap: 8px; }
+  .stat-value { font-size: 1.3rem; }
+
+  /* Saldo bar: stack to 1 col on very small screens */
+  .saldo-bar { grid-template-columns: 1fr; gap: 8px; }
+  .saldo-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+  .s-val { font-size: 1.1rem; }
+
+  /* Report grid: 1 col on very small screens */
+  .report-grid { grid-template-columns: 1fr; }
+
+  /* Two-col form: smaller gap */
+  .two-col { gap: 14px; }
+
+  /* Sidebar brand: smaller text */
+  .sidebar-brand-text strong { font-size: .82rem; }
+
+  /* Auth card */
+  .auth-card { padding: 24px 16px; border-radius: var(--radius-lg); }
+  .compass-big { font-size: 36px; }
+
+  /* Flash notifications: full-width on mobile */
+  .flash {
+    bottom: 16px;
+    right: 12px;
+    left: 12px;
+    text-align: center;
+  }
+
+  /* Page header icon + title alignment */
+  .page-header-left { gap: 8px; }
+  .page-header-left .page-icon { font-size: 20px; }
+  h1 { font-size: 1.15rem; }
+
+  /* Table: slightly smaller font */
+  td, th { padding: 9px 10px; font-size: .8rem; }
+
+  /* Inputs and selects: larger touch targets */
+  input, select, textarea { padding: 11px 13px; font-size: .9rem; }
+
+  /* Modal full-screen feel */
+  .modal-backdrop { padding: 12px; align-items: flex-end; }
+  .modal-box { border-radius: var(--radius-md) var(--radius-md) 0 0; max-height: 92vh; }
 }
