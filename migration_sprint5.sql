@@ -1,13 +1,14 @@
 -- =============================================================================
 -- Sistema Bússola — Sprint 5: Multitenancy + Sistema de Convites
+-- VERSÃO CORRIGIDA — remove policies antigas antes de criar as novas
 -- Execute este SQL inteiro no Supabase SQL Editor
 -- =============================================================================
 
--- Extensão UUID (já deve existir, mas garantindo)
+-- Extensão UUID
 create extension if not exists "uuid-ossp";
 
 -- =============================================================================
--- HIERARQUIA ORGANIZACIONAL (dados globais — sem RLS por clube)
+-- HIERARQUIA ORGANIZACIONAL
 -- =============================================================================
 
 create table if not exists uniao (
@@ -35,16 +36,8 @@ create table if not exists clube (
 );
 
 -- =============================================================================
--- PERFIL DE USUÁRIO (liga auth.users ao clube + papel)
+-- PERFIL DE USUÁRIO
 -- =============================================================================
-
--- Papéis possíveis no sistema
--- admin_sistema: pode criar unioes, associacoes e clubes (só via SQL/service_role)
--- regional / pastor: acesso de leitura em todos os clubes de sua associacao
--- diretor: acesso total ao seu clube; aprova convites e gerencia papéis
--- diretor_associado: acesso operacional completo
--- secretario: acesso a cadastros, atas, patrimônio
--- tesoureiro: acesso a caixa e mensalidades
 
 create table if not exists perfil_usuario (
   id uuid primary key default uuid_generate_v4(),
@@ -78,10 +71,6 @@ create table if not exists convite (
 -- =============================================================================
 -- ADICIONA clube_id NAS TABELAS OPERACIONAIS
 -- =============================================================================
-
--- Se as tabelas já existem, adiciona a coluna; se não existem, cria do zero.
--- Tabelas que precisam de clube_id: conselheiro, unidade, desbravador,
--- especialidades, mensalidade, caixa, patrimonio, atas, atos
 
 do $$ begin
   if not exists (select 1 from information_schema.columns where table_name='conselheiro' and column_name='clube_id') then
@@ -138,8 +127,7 @@ do $$ begin
 end $$;
 
 -- =============================================================================
--- FUNÇÃO AUXILIAR: retorna o clube_id do usuário logado
--- Usada nas policies RLS para não fazer subquery a cada linha
+-- FUNÇÕES AUXILIARES RLS
 -- =============================================================================
 
 create or replace function meu_clube_id()
@@ -161,13 +149,35 @@ as $$
 $$;
 
 -- =============================================================================
--- RLS — Ativa e cria políticas
+-- REMOVE AS POLICIES ANTIGAS (as do migration original)
+-- Sem isso, elas coexistem com as novas e anulam o isolamento por clube
 -- =============================================================================
 
--- ── Tabelas globais (uniao, associacao, clube): leitura livre p/ autenticados
-alter table uniao       enable row level security;
-alter table associacao  enable row level security;
-alter table clube       enable row level security;
+drop policy if exists "Authenticated full access - classe"                    on classe;
+drop policy if exists "Authenticated full access - conselheiro"               on conselheiro;
+drop policy if exists "Authenticated full access - unidade"                   on unidade;
+drop policy if exists "Authenticated full access - unidade_membro"            on unidade_membro;
+drop policy if exists "Authenticated full access - desbravador"               on desbravador;
+drop policy if exists "Authenticated full access - especialidades"            on especialidades;
+drop policy if exists "Authenticated full access - desbravador_especialidade" on desbravador_especialidade;
+drop policy if exists "Authenticated full access - mensalidade"               on mensalidade;
+drop policy if exists "Authenticated full access - caixa"                     on caixa;
+drop policy if exists "Authenticated full access - patrimonio"                on patrimonio;
+drop policy if exists "Authenticated full access - atas"                      on atas;
+drop policy if exists "Authenticated full access - atos"                      on atos;
+
+-- =============================================================================
+-- RLS — Novas políticas
+-- =============================================================================
+
+-- ── Tabelas globais: leitura livre para autenticados
+alter table uniao      enable row level security;
+alter table associacao enable row level security;
+alter table clube      enable row level security;
+
+drop policy if exists "Leitura livre - uniao"       on uniao;
+drop policy if exists "Leitura livre - associacao"  on associacao;
+drop policy if exists "Leitura livre - clube"       on clube;
 
 create policy "Leitura livre - uniao"
   on uniao for select using (auth.role() = 'authenticated');
@@ -178,8 +188,12 @@ create policy "Leitura livre - associacao"
 create policy "Leitura livre - clube"
   on clube for select using (auth.role() = 'authenticated');
 
--- ── perfil_usuario: cada um vê e edita apenas o próprio; diretor vê do clube
+-- ── perfil_usuario
 alter table perfil_usuario enable row level security;
+
+drop policy if exists "Ver proprio perfil"    on perfil_usuario;
+drop policy if exists "Inserir proprio perfil" on perfil_usuario;
+drop policy if exists "Editar proprio perfil"  on perfil_usuario;
 
 create policy "Ver proprio perfil"
   on perfil_usuario for select
@@ -193,8 +207,11 @@ create policy "Editar proprio perfil"
   on perfil_usuario for update
   using (auth_user_id = auth.uid());
 
--- ── convite: diretor do clube gerencia; qualquer autenticado pode ler pelo token
+-- ── convite
 alter table convite enable row level security;
+
+drop policy if exists "Diretor gerencia convites"                on convite;
+drop policy if exists "Qualquer autenticado le convite pelo token" on convite;
 
 create policy "Diretor gerencia convites"
   on convite for all
@@ -212,17 +229,6 @@ create policy "Qualquer autenticado le convite pelo token"
   using (auth.role() = 'authenticated');
 
 -- ── Tabelas operacionais: filtro por clube_id
-alter table conselheiro enable row level security;
-alter table unidade      enable row level security;
-alter table desbravador  enable row level security;
-alter table especialidades enable row level security;
-alter table mensalidade  enable row level security;
-alter table caixa        enable row level security;
-alter table patrimonio   enable row level security;
-alter table atas         enable row level security;
-alter table atos         enable row level security;
-
--- Macro para criar policy padrão por clube
 do $$ declare tabelas text[] := array[
   'conselheiro','unidade','desbravador','especialidades',
   'mensalidade','caixa','patrimonio','atas','atos'
@@ -231,6 +237,9 @@ t text;
 begin
   foreach t in array tabelas loop
     execute format(
+      'drop policy if exists "Acesso por clube - %I" on %I;', t, t
+    );
+    execute format(
       'create policy "Acesso por clube - %I" on %I for all
        using (clube_id = meu_clube_id())
        with check (clube_id = meu_clube_id());', t, t
@@ -238,86 +247,74 @@ begin
   end loop;
 end $$;
 
--- unidade_membro: acesso via unidade do clube
-alter table unidade_membro enable row level security;
-
-create policy "Acesso por clube - unidade_membro"
-  on unidade_membro for all
-  using (
-    unidade_id in (
-      select id from unidade where clube_id = meu_clube_id()
-    )
-  )
-  with check (
-    unidade_id in (
-      select id from unidade where clube_id = meu_clube_id()
-    )
-  );
-
--- desbravador_especialidade: acesso via desbravador do clube
-alter table desbravador_especialidade enable row level security;
-
-create policy "Acesso por clube - desbravador_especialidade"
-  on desbravador_especialidade for all
-  using (
-    desbravador_id in (
-      select id from desbravador where clube_id = meu_clube_id()
-    )
-  )
-  with check (
-    desbravador_id in (
-      select id from desbravador where clube_id = meu_clube_id()
-    )
-  );
-
--- classe: leitura global (são dados compartilhados), escrita só admin
-alter table classe enable row level security;
-
+-- ── Classe: leitura global (dados compartilhados)
+drop policy if exists "Leitura global - classe" on classe;
 create policy "Leitura global - classe"
   on classe for select using (auth.role() = 'authenticated');
 
+-- ── unidade_membro: acesso via unidade do clube
+drop policy if exists "Acesso por clube - unidade_membro" on unidade_membro;
+create policy "Acesso por clube - unidade_membro"
+  on unidade_membro for all
+  using (
+    unidade_id in (select id from unidade where clube_id = meu_clube_id())
+  )
+  with check (
+    unidade_id in (select id from unidade where clube_id = meu_clube_id())
+  );
+
+-- ── desbravador_especialidade: acesso via desbravador do clube
+drop policy if exists "Acesso por clube - desbravador_especialidade" on desbravador_especialidade;
+create policy "Acesso por clube - desbravador_especialidade"
+  on desbravador_especialidade for all
+  using (
+    desbravador_id in (select id from desbravador where clube_id = meu_clube_id())
+  )
+  with check (
+    desbravador_id in (select id from desbravador where clube_id = meu_clube_id())
+  );
+
 -- =============================================================================
--- DADOS INICIAIS — Hierarquia da DSA Brasil
+-- DADOS INICIAIS — Hierarquia DSA Brasil
 -- =============================================================================
 
--- Divisões / Uniões principais do Brasil (Divisão Sul Americana)
 insert into uniao (nome, sigla) values
-  ('União Adventista Norte Brasileira', 'UANB'),
-  ('União Adventista Nordeste Brasileira', 'UANEB'),
-  ('União Adventista Centro-Oeste Brasileira', 'UCOB'),
-  ('União Adventista Leste Brasileira', 'ULBAS'),
-  ('União Adventista Sul Brasileira', 'UASB'),
-  ('União Adventista Sul-Rio Grandense', 'UNASP'),
-  ('União Adventista Paulista', 'UAP')
+  ('União Adventista Norte Brasileira',        'UANB'),
+  ('União Adventista Nordeste Brasileira',      'UANEB'),
+  ('União Adventista Centro-Oeste Brasileira',  'UCOB'),
+  ('União Adventista Leste Brasileira',         'ULBAS'),
+  ('União Adventista Sul Brasileira',           'UASB'),
+  ('União Adventista Sul-Rio Grandense',        'UNASP'),
+  ('União Adventista Paulista',                 'UAP')
 on conflict do nothing;
 
--- UCOB — Associações do Centro-Oeste
 insert into associacao (nome, sigla, uniao_id)
 select nome, sigla, u.id from (values
-  ('Associação Planalto Central', 'APlaC'),
-  ('Associação Centro-Oeste Brasileira', 'ABC'),
-  ('Associação Brasil Central Paulista', 'ABCP'),
+  ('Associação Planalto Central',              'APlaC'),
+  ('Associação Centro-Oeste Brasileira',       'ABC'),
+  ('Associação Brasil Central Paulista',       'ABCP'),
   ('Associação Goiana de Igrejas Adventistas', 'AGR'),
-  ('Associação Mato-Grossense', 'AME'),
+  ('Associação Mato-Grossense',                'AME'),
   ('Associação Adventista de Mato Grosso do Sul', 'AMMT'),
-  ('Associação Tocantins', 'APTC')
+  ('Associação Tocantins',                     'APTC')
 ) as t(nome, sigla)
 cross join (select id from uniao where sigla = 'UCOB') as u
 on conflict do nothing;
 
--- =============================================================================
--- DADOS DE EXEMPLO — 1 clube para você testar
--- (O admin do sistema cria clubes via SQL ou futura interface admin)
--- =============================================================================
-
 insert into clube (nome, cidade, associacao_id)
-select 'Clube Bússola (Teste)', 'Taguatinga - DF', a.id
+select 'Pioneiros', 'Taguatinga Norte - DF', a.id
 from associacao a where a.sigla = 'APlaC'
 on conflict do nothing;
 
 -- =============================================================================
--- FIM — Próximos passos:
--- 1. Copie o ID do clube criado: SELECT id, nome FROM clube;
--- 2. Cole no .env.local: CLUBE_ADMIN_ID=<uuid>
--- 3. Acesse o sistema e faça login — o onboarding vai aparecer
+-- PRÓXIMOS PASSOS (rode esses dois SELECTs depois que tudo executar):
+--
+-- 1. SELECT id, nome FROM clube;
+--    → copie o ID do "Clube Bússola (Teste)"
+--
+-- 2. SELECT id, email FROM auth.users;
+--    → ou vá em Supabase > Authentication > Users e copie seu ID
+--
+-- 3. INSERT INTO perfil_usuario (auth_user_id, nome_completo, clube_id, papel)
+--    VALUES ('<seu-auth-id>', 'Seu Nome', '<id-do-clube>', 'diretor');
 -- =============================================================================
