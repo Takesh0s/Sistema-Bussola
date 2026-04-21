@@ -116,9 +116,13 @@ async function gerarSaida() {
   if (!unidadeId) { flash('Selecione a unidade.', 'error'); return; }
 
   const { data: unidade } = await db.from('unidade')
-    .select('nome, conselheiro:conselheiro_id(nome)').eq('id', unidadeId).single();
+    .select('nome').eq('id', unidadeId).single();
+  const { data: membros } = await db.from('unidade_membro')
+    .select('tipo, conselheiro:conselheiro_id(nome)').eq('unidade_id', unidadeId);
   const { data: desb } = await db.from('desbravador')
     .select('nome, data_nascimento, contato').eq('unidade_id', unidadeId).order('nome');
+
+  const titular = (membros || []).find(m => m.tipo === 'conselheiro');
 
   const doc = new jsPDF();
   let y = cabecalho(doc, 'Autorização de Saída');
@@ -126,7 +130,7 @@ async function gerarSaida() {
   doc.setFontSize(11); doc.setTextColor(40,40,40); doc.setFont('helvetica','bold');
   doc.text(`Unidade: ${unidade.nome}`, 14, y + 6);
   doc.setFont('helvetica','normal');
-  doc.text(`Conselheiro: ${unidade.conselheiro?.nome || '—'}`, 14, y + 14);
+  doc.text(`Conselheiro: ${titular?.conselheiro?.nome || '—'}`, 14, y + 14);
   y += 22;
 
   doc.autoTable({
@@ -323,8 +327,9 @@ async function gerarMensalidades() {
 
 // ── Relatório Geral ─────────────────────────────────────────
 async function gerarGeral() {
-  const [u, cl, e, d] = await Promise.all([
-    db.from('unidade').select('*, conselheiro:conselheiro_id(nome)').order('nome'),
+  const [u, membros, cl, e, d] = await Promise.all([
+    db.from('unidade').select('id, nome').order('nome'),
+    db.from('unidade_membro').select('unidade_id, tipo, conselheiro:conselheiro_id(nome)'),
     db.from('classe').select('*').order('nome'),
     db.from('especialidades').select('*').order('nome'),
     db.from('desbravador').select('*, unidade(nome), classe(nome)').order('nome'),
@@ -344,7 +349,10 @@ async function gerarGeral() {
   doc.autoTable({
     startY: y,
     head: [['Unidade', 'Conselheiro Titular']],
-    body: (u.data||[]).map(x => [x.nome, x.conselheiro?.nome || '—']),
+    body: (u.data||[]).map(x => {
+      const titular = (membros.data||[]).find(m => m.unidade_id === x.id && m.tipo === 'conselheiro');
+      return [x.nome, titular?.conselheiro?.nome || '—'];
+    }),
     styles: { fontSize: 8.5, cellPadding: 3 },
     headStyles: { fillColor: [6,182,212], textColor: 0 },
     alternateRowStyles: { fillColor: [248,250,252] },
