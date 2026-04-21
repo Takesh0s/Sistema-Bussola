@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Sistema Bússola — Cadastro</title>
+  <title>Sistema Bússola — Criar Conta</title>
   <link rel="stylesheet" href="style.css"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="supabase.js"></script>
@@ -12,75 +12,260 @@
 
 <div class="auth-page">
   <div class="auth-card fade-in">
-    <div class="auth-logo">
-      <span class="compass-big">🧭</span>
-      <h1>Criar Conta</h1>
-      <p>Sistema Bússola — Desbravadores</p>
+
+    <!-- PASSO 0: validando convite (spinner) -->
+    <div id="stepLoading">
+      <div class="auth-logo">
+        <span class="compass-big">🧭</span>
+        <h1>Sistema Bússola</h1>
+      </div>
+      <div style="text-align:center;padding:20px">
+        <span class="spinner" style="width:28px;height:28px"></span>
+        <p style="margin-top:12px;font-size:.85rem">Validando convite...</p>
+      </div>
     </div>
 
-    <div class="form-group">
-      <label for="email">E-mail</label>
-      <input type="email" id="email" placeholder="seu@email.com"/>
+    <!-- PASSO 1: convite inválido -->
+    <div id="stepInvalido" style="display:none">
+      <div class="auth-logo">
+        <span style="font-size:44px;display:block;margin-bottom:8px">🔒</span>
+        <h1>Convite inválido</h1>
+        <p>Este link de convite não existe, já foi usado ou expirou.</p>
+      </div>
+      <div style="margin-top:20px;text-align:center">
+        <p style="font-size:.85rem">Peça ao Diretor do seu clube um novo convite.</p>
+        <a href="index.html" style="color:var(--c-teal);font-weight:600;text-decoration:none;display:block;margin-top:16px">← Voltar ao login</a>
+      </div>
     </div>
-    <div class="form-group">
-      <label for="password">Senha</label>
-      <input type="password" id="password" placeholder="Mínimo 6 caracteres"/>
+
+    <!-- PASSO 2: criar conta com e-mail/senha -->
+    <div id="stepConta" style="display:none">
+      <div class="auth-logo">
+        <span class="compass-big">🧭</span>
+        <h1>Criar Conta</h1>
+        <p id="infoConvite" style="color:var(--c-teal);font-weight:600"></p>
+      </div>
+
+      <div id="formConta">
+        <div class="form-group">
+          <label>Nome Completo</label>
+          <input type="text" id="nome" placeholder="Seu nome completo"/>
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="email" placeholder="seu@email.com"/>
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="password" placeholder="Mínimo 6 caracteres"/>
+        </div>
+        <div class="form-group">
+          <label>Confirmar Senha</label>
+          <input type="password" id="confirm" placeholder="Repita a senha"/>
+        </div>
+        <button class="btn btn-primary" id="btnCriar" style="margin-top:8px">Criar Conta</button>
+
+        <div class="divider">ou</div>
+
+        <button class="btn btn-google" id="btnGoogle">
+          <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg" alt="Google"/>
+          Entrar com Google
+        </button>
+      </div>
+
+      <p style="text-align:center;margin-top:20px;font-size:.82rem;color:var(--c-muted)">
+        Já tem conta? <a href="index.html" style="color:var(--c-teal);font-weight:600;text-decoration:none">Fazer login</a>
+      </p>
     </div>
-    <div class="form-group">
-      <label for="confirm">Confirmar Senha</label>
-      <input type="password" id="confirm" placeholder="Repita a senha"/>
+
+    <!-- PASSO 3: completar perfil (pós-Google ou nome faltando) -->
+    <div id="stepPerfil" style="display:none">
+      <div class="auth-logo">
+        <span style="font-size:44px;display:block;margin-bottom:8px">👋</span>
+        <h1>Quase lá!</h1>
+        <p id="infoPerfil"></p>
+      </div>
+      <div class="form-group">
+        <label>Nome Completo</label>
+        <input type="text" id="nomeCompleto" placeholder="Confirme seu nome completo"/>
+      </div>
+      <button class="btn btn-primary" id="btnSalvarPerfil" style="margin-top:8px">Entrar no clube</button>
     </div>
 
-    <button class="btn btn-primary" id="cadastroBtn" style="margin-top:8px">Criar Conta</button>
+    <!-- PASSO 4: sucesso -->
+    <div id="stepSucesso" style="display:none;text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">✅</div>
+      <h1>Bem-vindo!</h1>
+      <p id="msgSucesso" style="margin-top:8px"></p>
+      <div style="margin-top:20px"><span class="spinner" style="width:20px;height:20px"></span></div>
+    </div>
 
-    <div class="divider">ou</div>
-
-    <button class="btn btn-google" id="googleBtn">
-      <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg" alt="Google"/>
-      Cadastrar com Google
-    </button>
-
-    <p style="text-align:center;margin-top:24px;font-size:.85rem">
-      Já tem conta?
-      <a href="index.html" style="color:var(--c-teal);font-weight:600;text-decoration:none"> Fazer login</a>
-    </p>
   </div>
 </div>
 
+<script src="utils.js"></script>
 <script>
-  function showFlash(msg, type = 'error') {
-    const el = document.createElement('div');
-    el.className = `flash flash-${type}`;
-    el.textContent = msg;
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3500);
+// ── Estado ──────────────────────────────────────────────────
+let conviteData = null;  // row do banco
+let tokenAtual  = null;
+
+function showStep(id) {
+  ['stepLoading','stepInvalido','stepConta','stepPerfil','stepSucesso'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? '' : 'none';
+  });
+}
+
+function showFlash(msg, type = 'error') {
+  const el = document.createElement('div');
+  el.className = `flash flash-${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ── Valida o token da URL ────────────────────────────────────
+async function init() {
+  const params = new URLSearchParams(location.search);
+  tokenAtual   = params.get('token');
+
+  if (!tokenAtual) {
+    // Sem token — mostra convite inválido
+    showStep('stepInvalido');
+    return;
   }
 
-  document.getElementById('cadastroBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('cadastroBtn');
-    const email    = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const confirm  = document.getElementById('confirm').value;
-    if (!email || !password)  { showFlash('Preencha todos os campos.'); return; }
-    if (password.length < 6)  { showFlash('Senha deve ter ao menos 6 caracteres.'); return; }
-    if (password !== confirm)  { showFlash('As senhas não coincidem.'); return; }
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Criando conta...';
-    const { error } = await db.auth.signUp({ email, password });
-    if (error) {
-      showFlash(error.message); btn.disabled = false; btn.textContent = 'Criar Conta';
-    } else {
-      showFlash('Conta criada! Verifique seu e-mail para confirmar.', 'success');
-      setTimeout(() => location.href = 'index.html', 3000);
-    }
-  });
+  // Verifica se já tem sessão ativa (veio do OAuth Google)
+  const { data: { session } } = await db.auth.getSession();
 
-  document.getElementById('googleBtn').addEventListener('click', () => {
-    db.auth.signInWithOAuth({ 
-      provider: 'google', 
-      options: { redirectTo: window.location.origin + '/app.html' } 
-    });
+  // Busca o convite
+  const { data: convite, error } = await db
+    .from('convite')
+    .select('*, clube:clube_id(id, nome, cidade)')
+    .eq('token', tokenAtual)
+    .single();
+
+  if (error || !convite) { showStep('stepInvalido'); return; }
+  if (convite.usado_por)  { showStep('stepInvalido'); return; } // já usado
+  if (new Date(convite.expira_em) < new Date()) { showStep('stepInvalido'); return; } // expirado
+
+  conviteData = convite;
+
+  if (session) {
+    // Já logado via Google redirect — vai direto pra completar perfil
+    await completarPerfilGoogle(session);
+    return;
+  }
+
+  // Mostra tela de criar conta
+  document.getElementById('infoConvite').textContent =
+    `Clube: ${convite.clube.nome} · Papel: ${PAPEL_LABEL[convite.papel] || convite.papel}`;
+  showStep('stepConta');
+}
+
+// ── Criar conta com e-mail/senha ─────────────────────────────
+document.getElementById('btnCriar').addEventListener('click', async () => {
+  const btn      = document.getElementById('btnCriar');
+  const nome     = document.getElementById('nome').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const confirm  = document.getElementById('confirm').value;
+
+  if (!nome)             { showFlash('Informe seu nome.'); return; }
+  if (!email||!password) { showFlash('Preencha e-mail e senha.'); return; }
+  if (password.length<6) { showFlash('Senha deve ter ao menos 6 caracteres.'); return; }
+  if (password!==confirm){ showFlash('As senhas não coincidem.'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Criando conta...';
+
+  const { data: signData, error } = await db.auth.signUp({ email, password });
+
+  if (error) {
+    showFlash(error.message); btn.disabled = false; btn.textContent = 'Criar Conta'; return;
+  }
+
+  // Cria perfil imediatamente (sem esperar confirmação de e-mail)
+  const userId = signData.user?.id || signData.session?.user?.id;
+  if (userId) {
+    await criarPerfil(userId, nome);
+  }
+});
+
+// ── Login com Google ─────────────────────────────────────────
+document.getElementById('btnGoogle').addEventListener('click', () => {
+  // Preserva o token no redirect
+  const redirectTo = `${location.origin}/cadastro.html?token=${tokenAtual}`;
+  db.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
+});
+
+// ── Pós-OAuth: completa o perfil ─────────────────────────────
+async function completarPerfilGoogle(session) {
+  // Verifica se já tem perfil (veio de um login, não de um cadastro)
+  const { data: perfilExist } = await db
+    .from('perfil_usuario')
+    .select('id')
+    .eq('auth_user_id', session.user.id)
+    .single();
+
+  if (perfilExist) {
+    // Já tem perfil — só usa o convite e vai pro app
+    await usarConvite(session.user.id, perfilExist.id);
+    irParaApp();
+    return;
+  }
+
+  // Nome do Google como sugestão
+  const nomeGoogle = session.user.user_metadata?.full_name || '';
+  document.getElementById('nomeCompleto').value = nomeGoogle;
+  document.getElementById('infoPerfil').textContent =
+    `Clube: ${conviteData.clube.nome} · ${PAPEL_LABEL[conviteData.papel]}`;
+  showStep('stepPerfil');
+
+  document.getElementById('btnSalvarPerfil').addEventListener('click', async () => {
+    const btn  = document.getElementById('btnSalvarPerfil');
+    const nome = document.getElementById('nomeCompleto').value.trim();
+    if (!nome) { showFlash('Informe seu nome.'); return; }
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Salvando...';
+    await criarPerfil(session.user.id, nome);
   });
+}
+
+// ── Cria perfil + usa convite ────────────────────────────────
+async function criarPerfil(userId, nome) {
+  const { data: perfil, error } = await db
+    .from('perfil_usuario')
+    .insert([{
+      auth_user_id:  userId,
+      nome_completo: nome,
+      clube_id:      conviteData.clube_id,
+      papel:         conviteData.papel,
+    }])
+    .select()
+    .single();
+
+  if (error) { showFlash(error.message); return; }
+
+  await usarConvite(userId, perfil.id);
+  irParaApp();
+}
+
+async function usarConvite(userId, perfilId) {
+  await db.from('convite').update({
+    usado_por: perfilId,
+    usado_em:  new Date().toISOString(),
+  }).eq('token', tokenAtual);
+}
+
+function irParaApp() {
+  document.getElementById('msgSucesso').textContent =
+    `Bem-vindo ao ${conviteData.clube.nome}! Redirecionando...`;
+  showStep('stepSucesso');
+  setTimeout(() => { location.href = 'app.html'; }, 2000);
+}
+
+// ── Inicia ───────────────────────────────────────────────────
+init();
 </script>
 </body>
 </html>
