@@ -6,12 +6,12 @@
   <title>Sistema Bússola — Login</title>
   <link rel="stylesheet" href="style.css"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabase.js"></script>
 </head>
 <body>
 
 <div class="auth-page">
   <div class="auth-card fade-in">
-
     <div class="auth-logo">
       <span class="compass-big">🧭</span>
       <h1>Sistema Bússola</h1>
@@ -22,15 +22,12 @@
       <label for="email">E-mail</label>
       <input type="email" id="email" placeholder="seu@email.com" autocomplete="email"/>
     </div>
-
     <div class="form-group">
       <label for="password">Senha</label>
       <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"/>
     </div>
 
-    <button class="btn btn-primary" id="loginBtn" style="margin-top:8px">
-      Entrar
-    </button>
+    <button class="btn btn-primary" id="loginBtn" style="margin-top:8px">Entrar</button>
 
     <div class="divider">ou</div>
 
@@ -39,18 +36,16 @@
       Entrar com Google
     </button>
 
-    <p style="text-align:center;margin-top:24px;font-size:.85rem;">
+    <p style="text-align:center;margin-top:24px;font-size:.85rem">
       Ainda não tem conta?
-      <a href="cadastro.html" style="color:var(--c-teal);font-weight:600;text-decoration:none;margin:0"> Cadastre-se</a>
+      <a href="cadastro.html" style="color:var(--c-teal);font-weight:600;text-decoration:none"> Cadastre-se</a>
     </p>
   </div>
 </div>
 
-<script src="supabase.js"></script>
 <script>
-  // Redireciona se já logado
   db.auth.getSession().then(({ data }) => {
-    if (data.session) window.location.href = 'dashboard.html';
+    if (data.session) location.href = 'app.html';
   });
 
   function showFlash(msg, type = 'error') {
@@ -65,36 +60,23 @@
     const btn = document.getElementById('loginBtn');
     const email    = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
-
     if (!email || !password) { showFlash('Preencha e-mail e senha.'); return; }
-
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Entrando...';
-
     const { error } = await db.auth.signInWithPassword({ email, password });
-
     if (error) {
       showFlash(error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : error.message);
-      btn.disabled = false;
-      btn.textContent = 'Entrar';
-    } else {
-      window.location.href = 'dashboard.html';
-    }
+      btn.disabled = false; btn.textContent = 'Entrar';
+    } else { location.href = 'app.html'; }
   });
 
-  // Enter key
   document.getElementById('password').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('loginBtn').click();
   });
 
   document.getElementById('googleBtn').addEventListener('click', () => {
-    const base = window.location.origin.includes('localhost')
-      ? 'http://localhost:8080'
-      : window.location.origin;
-    db.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: base + '/dashboard.html' }
-    });
+    const base = location.origin.includes('localhost') ? 'http://localhost:5500' : location.origin;
+    db.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: base + '/app.html' } });
   });
 </script>
 </body>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Sistema Bússola</title>
+  <link rel="stylesheet" href="style.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <script src="supabase.js"></script>
+  <script src="utils.js"></script>
+</head>
+<body>
+
+<!-- Mobile sidebar toggle -->
+<button class="sidebar-toggle" id="sidebarToggle">☰</button>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="spa-layout">
+
+  <!-- ── Sidebar ─────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-brand">
+      <span class="compass">🧭</span>
+      <div class="sidebar-brand-text">
+        <strong>Sistema Bússola</strong>
+        <small>Clube de Desbravadores</small>
+      </div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-dot"></div>
+      <span id="sidebarEmail">carregando...</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Geral</div>
+      <a class="nav-item" data-view="dashboard">
+        <span class="nav-icon">📊</span> Painel
+      </a>
+
+      <div class="nav-section-label" style="margin-top:8px">Cadastros</div>
+      <a class="nav-item" data-view="conselheiros">
+        <span class="nav-icon">🎖️</span> Conselheiros
+      </a>
+      <a class="nav-item" data-view="unidades">
+        <span class="nav-icon">🏕️</span> Unidades
+      </a>
+      <a class="nav-item" data-view="desbravadores">
+        <span class="nav-icon">👤</span> Desbravadores
+      </a>
+      <a class="nav-item" data-view="especialidades">
+        <span class="nav-icon">⭐</span> Especialidades
+      </a>
+
+      <div class="nav-section-label" style="margin-top:8px">Financeiro</div>
+      <a class="nav-item" data-view="mensalidades">
+        <span class="nav-icon">💳</span> Mensalidades
+      </a>
+      <a class="nav-item" data-view="caixa">
+        <span class="nav-icon">💰</span> Caixa
+      </a>
+
+      <div class="nav-section-label" style="margin-top:8px">Administrativo</div>
+      <a class="nav-item" data-view="patrimonio">
+        <span class="nav-icon">📦</span> Patrimônio
+      </a>
+      <a class="nav-item" data-view="atas">
+        <span class="nav-icon">📋</span> Atas e Atos
+      </a>
+
+      <div class="nav-section-label" style="margin-top:8px">Documentos</div>
+      <a class="nav-item" data-view="relatorios">
+        <span class="nav-icon">📄</span> Relatórios
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="nav-item danger" id="logoutBtn" style="border-radius:var(--radius-sm)">
+        <span class="nav-icon">🚪</span> Sair
+      </a>
+    </div>
+
+  </aside>
+
+  <!-- ── Main content ─────────────────────────────── -->
+  <main class="main-content">
+    <div id="viewContainer" class="fade-in"></div>
+  </main>
+
+</div>
+
+<!-- Modal global -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal-box" id="modalBox">
+    <div class="modal-header">
+      <h2 id="modalTitle"></h2>
+      <button class="btn btn-icon" onclick="closeModal()" style="font-size:18px">✕</button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

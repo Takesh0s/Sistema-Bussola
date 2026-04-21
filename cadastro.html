@@ -6,12 +6,12 @@
   <title>Sistema Bússola — Cadastro</title>
   <link rel="stylesheet" href="style.css"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabase.js"></script>
 </head>
 <body>
 
 <div class="auth-page">
   <div class="auth-card fade-in">
-
     <div class="auth-logo">
       <span class="compass-big">🧭</span>
       <h1>Criar Conta</h1>
@@ -22,20 +22,16 @@
       <label for="email">E-mail</label>
       <input type="email" id="email" placeholder="seu@email.com"/>
     </div>
-
     <div class="form-group">
       <label for="password">Senha</label>
       <input type="password" id="password" placeholder="Mínimo 6 caracteres"/>
     </div>
-
     <div class="form-group">
       <label for="confirm">Confirmar Senha</label>
       <input type="password" id="confirm" placeholder="Repita a senha"/>
     </div>
 
-    <button class="btn btn-primary" id="cadastroBtn" style="margin-top:8px">
-      Criar Conta
-    </button>
+    <button class="btn btn-primary" id="cadastroBtn" style="margin-top:8px">Criar Conta</button>
 
     <div class="divider">ou</div>
 
@@ -44,14 +40,13 @@
       Cadastrar com Google
     </button>
 
-    <p style="text-align:center;margin-top:24px;font-size:.85rem;">
+    <p style="text-align:center;margin-top:24px;font-size:.85rem">
       Já tem conta?
-      <a href="index.html" style="color:var(--c-teal);font-weight:600;text-decoration:none;margin:0"> Fazer login</a>
+      <a href="index.html" style="color:var(--c-teal);font-weight:600;text-decoration:none"> Fazer login</a>
     </p>
   </div>
 </div>
 
-<script src="supabase.js"></script>
 <script>
   function showFlash(msg, type = 'error') {
     const el = document.createElement('div');
@@ -66,29 +61,23 @@
     const email    = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
     const confirm  = document.getElementById('confirm').value;
-
-    if (!email || !password) { showFlash('Preencha todos os campos.'); return; }
+    if (!email || !password)  { showFlash('Preencha todos os campos.'); return; }
     if (password.length < 6)  { showFlash('Senha deve ter ao menos 6 caracteres.'); return; }
     if (password !== confirm)  { showFlash('As senhas não coincidem.'); return; }
-
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Criando conta...';
-
     const { error } = await db.auth.signUp({ email, password });
-
     if (error) {
-      showFlash(error.message);
-      btn.disabled = false;
-      btn.textContent = 'Criar Conta';
+      showFlash(error.message); btn.disabled = false; btn.textContent = 'Criar Conta';
     } else {
       showFlash('Conta criada! Verifique seu e-mail para confirmar.', 'success');
-      setTimeout(() => window.location.href = 'index.html', 3000);
+      setTimeout(() => location.href = 'index.html', 3000);
     }
   });
 
   document.getElementById('googleBtn').addEventListener('click', () => {
-    const base = window.location.origin.includes('localhost') ? 'http://localhost:8080' : window.location.origin;
-    db.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: base + '/dashboard.html' } });
+    const base = location.origin.includes('localhost') ? 'http://localhost:5500' : location.origin;
+    db.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: base + '/app.html' } });
   });
 </script>
 </body>
