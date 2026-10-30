@@ -64,4 +64,7 @@ const PAPEL_LABEL = {
   admin_sistema:'Admin do Sistema', regional:'Regional', pastor:'Pastor',
   diretor:'Diretor', diretor_associado:'Diretor Associado',
   secretario:'Secretário', tesoureiro:'Tesoureiro',
+  admin_associacao:'Admin da Associação',
+  conselheiro:'Conselheiro', conselheiro_associado:'Conselheiro Associado',
+  capelao:'Capelão', instrutor:'Instrutor',
 };
