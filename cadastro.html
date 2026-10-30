@@ -137,22 +137,20 @@ async function init() {
   // Verifica se já tem sessão ativa (veio do OAuth Google)
   const { data: { session } } = await db.auth.getSession();
 
-  // Busca o convite
-  const { data: convite, error } = await db
-    .from('convite')
-    .select('*, clube:clube_id(id, nome, cidade)')
-    .eq('token', tokenAtual)
-    .single();
+  // Consulta o convite pelo token (RPC: a tabela convite não é legível pelo cliente)
+  const { data: linhas, error } = await db.rpc('consultar_convite', { p_token: tokenAtual });
+  const convite = linhas?.[0];
 
-  if (error || !convite) { showStep('stepInvalido'); return; }
-  if (convite.usado_por)  { showStep('stepInvalido'); return; } // já usado
-  if (new Date(convite.expira_em) < new Date()) { showStep('stepInvalido'); return; } // expirado
+  if (error || !convite || !convite.valido) { showStep('stepInvalido'); return; } // inexistente, usado ou expirado
 
-  conviteData = convite;
+  conviteData = {
+    papel: convite.papel,
+    clube: { nome: convite.clube_nome, cidade: convite.clube_cidade },
+  };
 
   if (session) {
-    // Já logado via Google redirect — vai direto pra completar perfil
-    await completarPerfilGoogle(session);
+    // Já logado (redirect do Google ou da confirmação de e-mail) — completa o perfil
+    await completarPerfil(session);
     return;
   }
 
@@ -178,17 +176,28 @@ document.getElementById('btnCriar').addEventListener('click', async () => {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Criando conta...';
 
-  const { data: signData, error } = await db.auth.signUp({ email, password });
+  const { data: signData, error } = await db.auth.signUp({
+    email,
+    password,
+    options: {
+      data: { full_name: nome },
+      // Se o projeto exigir confirmação de e-mail, o link volta para este convite
+      emailRedirectTo: `${location.origin}/cadastro.html?token=${tokenAtual}`,
+    },
+  });
 
   if (error) {
     showFlash(error.message); btn.disabled = false; btn.textContent = 'Criar Conta'; return;
   }
 
-  // Cria perfil imediatamente (sem esperar confirmação de e-mail)
-  const userId = signData.user?.id || signData.session?.user?.id;
-  if (userId) {
-    await criarPerfil(userId, nome);
+  if (!signData.session) {
+    // Sem sessão = confirmação de e-mail pendente; o perfil é criado na volta
+    showFlash('Conta criada! Confirme seu e-mail pelo link enviado para concluir o cadastro.', 'success');
+    btn.textContent = 'Verifique seu e-mail';
+    return;
   }
+
+  await criarPerfil(nome);
 });
 
 // ── Login com Google ─────────────────────────────────────────
@@ -198,19 +207,18 @@ document.getElementById('btnGoogle').addEventListener('click', () => {
   db.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
 });
 
-// ── Pós-OAuth: completa o perfil ─────────────────────────────
-async function completarPerfilGoogle(session) {
+// ── Já logado: completa o perfil ─────────────────────────────
+async function completarPerfil(session) {
   // Verifica se já tem perfil (veio de um login, não de um cadastro)
   const { data: perfilExist } = await db
     .from('perfil_usuario')
     .select('id')
     .eq('auth_user_id', session.user.id)
-    .single();
+    .maybeSingle();
 
   if (perfilExist) {
-    // Já tem perfil — só usa o convite e vai pro app
-    await usarConvite(session.user.id, perfilExist.id);
-    irParaApp();
+    // Já tem perfil — só recebe o cargo do convite e vai pro app
+    await criarPerfil('');
     return;
   }
 
@@ -227,34 +235,26 @@ async function completarPerfilGoogle(session) {
     if (!nome) { showFlash('Informe seu nome.'); return; }
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Salvando...';
-    await criarPerfil(session.user.id, nome);
+    await criarPerfil(nome);
   });
 }
 
-// ── Cria perfil + usa convite ────────────────────────────────
-async function criarPerfil(userId, nome) {
-  const { data: perfil, error } = await db
-    .from('perfil_usuario')
-    .insert([{
-      auth_user_id:  userId,
-      nome_completo: nome,
-      clube_id:      conviteData.clube_id,
-      papel:         conviteData.papel,
-    }])
-    .select()
-    .single();
+// ── Aceita o convite ─────────────────────────────────────────
+// A RPC valida o token, cria (ou completa) o perfil, concede o cargo e
+// marca o convite como usado, tudo numa transação só.
+async function criarPerfil(nome) {
+  const { error } = await db.rpc('aceitar_convite', { p_token: tokenAtual, p_nome: nome });
 
-  if (error) { showFlash(error.message); return; }
+  if (error) {
+    showFlash(error.hint || error.message);
+    const salvar = document.getElementById('btnSalvarPerfil');
+    const criar  = document.getElementById('btnCriar');
+    salvar.disabled = false; salvar.textContent = 'Entrar no clube';
+    criar.disabled  = false; criar.textContent  = 'Criar Conta';
+    return;
+  }
 
-  await usarConvite(userId, perfil.id);
   irParaApp();
-}
-
-async function usarConvite(userId, perfilId) {
-  await db.from('convite').update({
-    usado_por: perfilId,
-    usado_em:  new Date().toISOString(),
-  }).eq('token', tokenAtual);
 }
 
 function irParaApp() {
