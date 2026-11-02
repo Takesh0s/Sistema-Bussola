@@ -157,12 +157,13 @@ insert into classe (nome, descricao) values
 
 ### 2. Configurar credenciais
 
-Edite `supabase.js` com sua URL e chave anon do Supabase:
+Edite `supabase.js` com a Project URL e a Publishable key do seu projeto Supabase
+(nunca a Secret key):
 
 ```js
-const supabase = window.supabase.createClient(
-  'https://gjplfuopvdsoaracqljp.supabase.co',
-  'sb_publishable_kDXuYFeJAEYbbytOJjDJhQ_2k8v8fL1'
+const db = createClient(
+  'https://SEU-PROJETO.supabase.co',
+  'sb_publishable_SUA_CHAVE'
 );
 ```
 
