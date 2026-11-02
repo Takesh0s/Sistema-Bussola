@@ -2,8 +2,8 @@
 const { createClient } = globalThis.supabase;
 
 const db = createClient(
-  'https://gjplfuopvdsoaracqljp.supabase.co',
-  'sb_publishable_kDXuYFeJAEYbbytOJjDJhQ_2k8v8fL1',
+  'https://mexzzdxkronktxrupodz.supabase.co',
+  'sb_publishable_EBXNBlKr4YlDziP25VE_wg_t9Bby-M_',
   {
     auth: {
       persistSession: true,
