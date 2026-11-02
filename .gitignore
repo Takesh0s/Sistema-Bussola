@@ -59,3 +59,5 @@ npm-debug.log*
 *.tar.gz
 
 docs/Base_Especialidades
+# Importador de especialidades: HTML de páginas com formato não reconhecido
+mda_problemas/

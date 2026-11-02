@@ -13,6 +13,9 @@
 // --conferir <pasta>  compara com os .txt feitos à mão (nº de requisitos por código)
 // --area <nome>       importa só a área cujo nome contém o texto
 // --saida <arquivo>   caminho do SQL (padrão: seeds/especialidades_oficiais.sql)
+// --dividir <n>       gera vários arquivos com n especialidades cada (pasta com o nome da saída)
+//
+// Páginas em que nenhum requisito foi reconhecido têm o HTML salvo em mda_problemas/.
 //
 // O SQL gerado é idempotente: ids fixos (uuid v5 a partir do código) e upsert.
 // Rodar de novo atualiza textos que mudaram no wiki.
@@ -268,7 +271,9 @@ async function main() {
     for (const item of lista) {
       await esperar(PAUSA_MS);
       try {
-        const e = lerEspecialidade(await baixar(item.url));
+        const html = await baixar(item.url);
+        const e = lerEspecialidade(html);
+        if (!e.requisitos.length) e.html = html;
         e.areaNome = areaNome;
         e.url = item.url;
         e.codigo ??= item.codigo;
@@ -287,13 +292,37 @@ async function main() {
   const vistos = new Set();
   const unicos = resultado.filter((e) => (vistos.has(e.codigo) ? false : vistos.add(e.codigo)));
 
-  mkdirSync(dirname(saida), { recursive: true });
-  writeFileSync(saida, gerarSql(unicos, new Date().toISOString().slice(0, 10)), 'utf8');
+  const hoje = new Date().toISOString().slice(0, 10);
   const total = unicos.reduce((s, e) => s + e.requisitos.length, 0);
-  console.log(`\n${unicos.length} especialidades, ${total} requisitos → ${saida}`);
+  const porParte = Number(argumento('--dividir')) || 0;
+
+  if (porParte > 0) {
+    // Vários arquivos menores: o SQL Editor do Supabase trava com arquivos muito grandes
+    const pasta = saida.replace(/\.sql$/, '');
+    mkdirSync(pasta, { recursive: true });
+    const partes = Math.ceil(unicos.length / porParte);
+    for (let p = 0; p < partes; p++) {
+      const arquivo = join(pasta, `parte_${String(p + 1).padStart(2, '0')}.sql`);
+      writeFileSync(arquivo, gerarSql(unicos.slice(p * porParte, (p + 1) * porParte), hoje), 'utf8');
+    }
+    console.log(`\n${unicos.length} especialidades, ${total} requisitos → ${pasta}/ (${partes} partes)`);
+  } else {
+    mkdirSync(dirname(saida), { recursive: true });
+    writeFileSync(saida, gerarSql(unicos, hoje), 'utf8');
+    console.log(`\n${unicos.length} especialidades, ${total} requisitos → ${saida}`);
+  }
+
+  // Páginas sem requisitos: guarda o HTML para análise do formato
+  const semRequisitos = unicos.filter((e) => !e.requisitos.length);
+  if (semRequisitos.length) {
+    mkdirSync('mda_problemas', { recursive: true });
+    for (const e of semRequisitos) writeFileSync(join('mda_problemas', `${e.codigo}.html`), e.html, 'utf8');
+    console.log(`HTML das ${semRequisitos.length} páginas sem requisitos salvo em mda_problemas/`);
+  }
 
   if (pastaConferir) {
     const manuais = lerTxtManuais(pastaConferir);
+    if (!manuais.size) console.log(`\nAtenção: nenhuma especialidade encontrada nos .txt de "${pastaConferir}".`);
     let iguais = 0;
     const diferentes = [];
     for (const [codigo, m] of manuais) {
