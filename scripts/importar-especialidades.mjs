@@ -132,25 +132,38 @@ export function lerEspecialidade(html) {
   const codigoBody = html.match(/data-mda-code="([^"]*)"/)?.[1] || null;
   const codigo = codigoBody || (valores[0] && valores[1] ? `${valores[0]}-${valores[1]}` : null);
 
-  // Texto entre a tabela e a primeira lista = notas da especialidade
-  const depoisTabela = corpo.split('</no_text>')[1] ?? corpo;
-  const iniLista = depoisTabela.search(/<ol\b/);
+  // Tudo depois do bloco <no_text> que contém a tabela. Algumas páginas têm notas de
+  // navegação ("Talvez você esteja procurando…", "Veja também…") em outro bloco
+  // <no_text> ANTES da tabela; elas ficam de fora.
+  const posTabela = corpo.indexOf('templ_especialidade_dbv');
+  const fimBloco = posTabela >= 0 ? corpo.indexOf('</no_text>', posTabela) : -1;
+  const inicio = fimBloco >= 0 ? fimBloco + '</no_text>'.length
+    : Math.max(0, corpo.search(/<\/h1>/i));
+  const depoisTabela = corpo.slice(inicio).replace(/<\/?no_text>/g, ' ');
+  const iniLista = depoisTabela.search(/<(ol|ul)\b/i);
   const notas = textoLimpo(iniLista >= 0 ? depoisTabela.slice(0, iniLista) : '') || null;
 
-  // Requisitos: percorre <ol>, </ol> e <li> em ordem, controlando a profundidade
+  // Requisitos: percorre <ol>/<ul>, o fechamento e <li> em ordem, controlando a profundidade.
+  // Itens de <ul> que começam com "Obs"/"Nota" são observações do requisito acima,
+  // não requisitos: o texto é anexado ao item pai.
   const requisitos = [];
   const pilha = [];   // último requisito de cada nível
   const contagem = [];
+  const tipos = [];   // 'ol' ou 'ul' de cada nível aberto
   let nivel = -1;
   const lista = iniLista >= 0 ? depoisTabela.slice(iniLista) : '';
-  const re = /<ol\b[^>]*>|<\/ol>|<li\b[^>]*>([\s\S]*?)<\/li>/gi;
+  const re = /<(ol|ul)\b[^>]*>|<\/(ol|ul)>|<li\b[^>]*>([\s\S]*?)<\/li>/gi;
   for (const m of lista.matchAll(re)) {
-    const tag = m[0].slice(0, 4).toLowerCase();
-    if (tag.startsWith('<ol')) { nivel++; contagem[nivel] = 0; continue; }
-    if (tag === '</ol') { nivel--; continue; }
+    if (m[1]) { nivel++; contagem[nivel] = 0; tipos[nivel] = m[1].toLowerCase(); continue; }
+    if (m[2]) { nivel--; continue; }
     if (nivel < 0) continue;
-    const texto = textoLimpo(m[1]);
+    const texto = textoLimpo(m[3]);
     if (!texto) continue;
+    if (tipos[nivel] === 'ul' && /^(obs|nota)\b/i.test(texto)) {
+      const alvo = nivel > 0 ? pilha[nivel - 1] : null;
+      if (alvo) alvo.texto += ` (${texto})`;
+      continue;
+    }
     contagem[nivel] = (contagem[nivel] ?? 0) + 1;
     const n = contagem[nivel];
     const pai = nivel > 0 ? pilha[nivel - 1] : null;
