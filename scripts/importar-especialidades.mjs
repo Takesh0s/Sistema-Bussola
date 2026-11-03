@@ -115,6 +115,13 @@ export function lerArea(html) {
   return itens;
 }
 
+// Letras de subitem como no navegador: a…z, aa, ab… (sem voltar ao "a" depois do "z")
+export function letra(n) {
+  let s = '';
+  for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(97 + ((x - 1) % 26)) + s;
+  return s;
+}
+
 // Página de especialidade: metadados + requisitos aninhados
 export function lerEspecialidade(html) {
   const meta = (nome) => html.match(new RegExp(`<meta name="${nome}" content="([^"]*)"`))?.[1] ?? null;
@@ -146,15 +153,20 @@ export function lerEspecialidade(html) {
   // Requisitos: percorre <ol>/<ul>, o fechamento e <li> em ordem, controlando a profundidade.
   // Itens de <ul> que começam com "Obs"/"Nota" são observações do requisito acima,
   // não requisitos: o texto é anexado ao item pai.
+  // A numeração é contada por item pai e NUNCA recomeça quando a página abre uma nova
+  // lista no mesmo nível (ex.: duas listas separadas por um texto). Recomeçar gerava
+  // rótulos repetidos ("1" duas vezes), e como o id vem do rótulo, um requisito
+  // sobrescrevia o outro no banco.
   const requisitos = [];
   const pilha = [];   // último requisito de cada nível
-  const contagem = [];
+  const contagem = new Map(); // "nível|rótulo do pai" → quantos itens já teve
+  const usados = new Set();
   const tipos = [];   // 'ol' ou 'ul' de cada nível aberto
   let nivel = -1;
   const lista = iniLista >= 0 ? depoisTabela.slice(iniLista) : '';
   const re = /<(ol|ul)\b[^>]*>|<\/(ol|ul)>|<li\b[^>]*>([\s\S]*?)<\/li>/gi;
   for (const m of lista.matchAll(re)) {
-    if (m[1]) { nivel++; contagem[nivel] = 0; tipos[nivel] = m[1].toLowerCase(); continue; }
+    if (m[1]) { nivel++; tipos[nivel] = m[1].toLowerCase(); continue; }
     if (m[2]) { nivel--; continue; }
     if (nivel < 0) continue;
     const texto = textoLimpo(m[3]);
@@ -164,12 +176,16 @@ export function lerEspecialidade(html) {
       if (alvo) alvo.texto += ` (${texto})`;
       continue;
     }
-    contagem[nivel] = (contagem[nivel] ?? 0) + 1;
-    const n = contagem[nivel];
-    const pai = nivel > 0 ? pilha[nivel - 1] : null;
-    const rotulo = !pai ? String(n)
-      : nivel % 2 === 1 ? `${pai.rotulo}.${'abcdefghijklmnopqrstuvwxyz'[(n - 1) % 26]}`
+    const pai = nivel > 0 ? pilha[nivel - 1] ?? null : null;
+    const chave = `${nivel}|${pai?.rotulo ?? ''}`;
+    const n = (contagem.get(chave) ?? 0) + 1;
+    contagem.set(chave, n);
+    let rotulo = !pai ? String(n)
+      : nivel % 2 === 1 ? `${pai.rotulo}.${letra(n)}`
         : `${pai.rotulo}.${n}`;
+    // Garantia final: nenhum rótulo se repete dentro da especialidade
+    for (let k = 2; usados.has(rotulo); k++) rotulo = `${rotulo.replace(/~\d+$/, '')}~${k}`;
+    usados.add(rotulo);
     const req = { rotulo, texto, nivel, pai: pai?.rotulo ?? null, numero: requisitos.length + 1 };
     requisitos.push(req);
     pilha[nivel] = req;
@@ -307,6 +323,10 @@ async function main() {
 
   const hoje = new Date().toISOString().slice(0, 10);
   const total = unicos.reduce((s, e) => s + e.requisitos.length, 0);
+
+  // Cada requisito precisa de um id próprio; ids repetidos se sobrescrevem no banco
+  const ids = new Set(unicos.flatMap((e) => e.requisitos.map((r) => `${e.codigo}|${r.rotulo}`)));
+  if (ids.size !== total) avisos.push(`ids repetidos: ${total - ids.size} requisitos seriam sobrescritos no banco`);
   const porParte = Number(argumento('--dividir')) || 0;
 
   if (porParte > 0) {
