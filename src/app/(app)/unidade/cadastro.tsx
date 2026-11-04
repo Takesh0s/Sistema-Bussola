@@ -16,6 +16,7 @@ import { dados, mensagemErro, supabase } from '@/lib/supabase';
 type Cadastro = {
   id: string; nome: string; data_nascimento: string | null; sexo: 'M' | 'F' | null;
   unidade_id: string | null; classe_id: string | null; contato: string | null; justificativa_sexo: string | null;
+  perfil_id: string | null;
 };
 
 export default function CadastroDesbravador() {
@@ -27,11 +28,24 @@ export default function CadastroDesbravador() {
 
   const atual = useQuery({
     queryKey: ['cadastro', id],
-    queryFn: () => dados<Cadastro>(supabase.from('desbravador').select('id, nome, data_nascimento, sexo, unidade_id, classe_id, contato, justificativa_sexo').eq('id', id!).single()),
+    queryFn: () => dados<Cadastro>(supabase.from('desbravador').select('id, nome, data_nascimento, sexo, unidade_id, classe_id, contato, justificativa_sexo, perfil_id').eq('id', id!).single()),
     enabled: !!id,
   });
   const unidades = useQuery({ queryKey: ['unidades', clube?.id], queryFn: () => api.unidadesDoClube(clube!.id), enabled: !!clube });
   const classes = useQuery({ queryKey: ['classes'], queryFn: api.classes, staleTime: Infinity });
+  // Contas do clube que ainda não têm cartão (para ligar um adulto já cadastrado à conta dele)
+  const contas = useQuery({
+    queryKey: ['contas-sem-cartao', clube?.id],
+    queryFn: async () => {
+      const [pessoas, ligadas] = await Promise.all([
+        dados<{ id: string; nome_completo: string }[]>(supabase.from('perfil_usuario').select('id, nome_completo').eq('clube_id', clube!.id).order('nome_completo')),
+        dados<{ perfil_id: string }[]>(supabase.from('desbravador').select('perfil_id').eq('clube_id', clube!.id).not('perfil_id', 'is', null)),
+      ]);
+      const usadas = new Set(ligadas.map((l) => l.perfil_id));
+      return pessoas.filter((p) => !usadas.has(p.id) || p.id === atual.data?.perfil_id);
+    },
+    enabled: !!clube && !!id && !!atual.data,
+  });
 
   const [nome, setNome] = useState('');
   const [nascimento, setNascimento] = useState('');
@@ -42,12 +56,13 @@ export default function CadastroDesbravador() {
   const [justificativa, setJustificativa] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [classeManual, setClasseManual] = useState(false);
+  const [contaId, setContaId] = useState<string | null>(null);
 
   useEffect(() => {
     const d = atual.data;
     if (!d) return;
     setNome(d.nome); setNascimento(dataTexto(d.data_nascimento)); setSexo(d.sexo); setUnidadeId(d.unidade_id);
-    setClasseId(d.classe_id); setContato(d.contato ?? ''); setJustificativa(d.justificativa_sexo ?? ''); setClasseManual(true);
+    setClasseId(d.classe_id); setContato(d.contato ?? ''); setJustificativa(d.justificativa_sexo ?? ''); setClasseManual(true); setContaId(d.perfil_id);
   }, [atual.data]);
 
   const unidade = unidades.data?.find((u) => u.id === unidadeId);
@@ -77,7 +92,12 @@ export default function CadastroDesbravador() {
         ? await supabase.from('desbravador').update(linha).eq('id', id)
         : await supabase.from('desbravador').insert({ ...linha, clube_id: clube.id });
       if (error) throw error;
+      if (id && contaId !== (atual.data?.perfil_id ?? null)) {
+        const { error: e2 } = await supabase.rpc('vincular_conta_membro', { p_desbravador: id, p_perfil: contaId });
+        if (e2) throw e2;
+      }
       await Promise.all([
+        qc.invalidateQueries({ queryKey: ['contas-sem-cartao'] }),
         qc.invalidateQueries({ queryKey: ['membros-unidade'] }),
         qc.invalidateQueries({ queryKey: ['membros-clube'] }),
         qc.invalidateQueries({ queryKey: ['membro', id] }),
@@ -141,6 +161,17 @@ export default function CadastroDesbravador() {
         ))}
         <ChipFiltro texto="Ainda não definida" ativo={!classeId} onPress={() => { setClasseId(null); setClasseManual(true); }} />
       </View>
+
+      {id && (contas.data?.length ?? 0) > 0 ? (
+        <>
+          <T s={13} w="semi" c="texto2">Conta no app (para adultos com cargo)</T>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            <ChipFiltro texto="Nenhuma" ativo={!contaId} onPress={() => setContaId(null)} />
+            {contas.data!.map((p) => <ChipFiltro key={p.id} texto={p.nome_completo} ativo={contaId === p.id} onPress={() => setContaId(p.id)} />)}
+          </View>
+          <T s={12} c="texto2">Ligado à conta, este cartão aparece em “Minha classe” para a pessoa.</T>
+        </>
+      ) : null}
 
       <Campo rotulo="Contato do responsável (opcional)" value={contato} onChangeText={setContato} placeholder="Ex.: Maria (mãe) · (61) 99999-0000" />
       <Aviso tom="neutro" texto={id

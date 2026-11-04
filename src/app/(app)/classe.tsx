@@ -1,5 +1,6 @@
 // Cartão da classe: requisitos por seção (regular e avançada).
-// Com ?membro=id, a liderança vê o cartão de um desbravador e pode marcar requisitos.
+// Com ?membro=id, a liderança vê o cartão de um desbravador e pode marcar requisitos
+// (menos no próprio cartão).
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui';
 import * as api from '@/lib/api';
 import { LIDERANCA, Membro, useAuth } from '@/lib/auth';
+import { AtivarCartao } from '@/components/meu-cartao';
 import { capitalizar, dataCurta, diaMes, fmt } from '@/lib/datas';
 import { dados, mensagemErro, supabase } from '@/lib/supabase';
 import { useTema } from '@/theme';
@@ -61,7 +63,8 @@ export default function CartaoClasse() {
     return m;
   }, [lista]);
 
-  const podeMarcar = lideranca && !!params.membro && c?.classe?.id !== 'agrupada';
+  // Ninguém marca o próprio cartão (o banco também bloqueia)
+  const podeMarcar = lideranca && !!params.membro && params.membro !== eu?.id && c?.classe?.id !== 'agrupada';
 
   async function alternar(r: api.ReqClasse) {
     if (!podeMarcar || !alvo || !clube) return;
@@ -119,7 +122,7 @@ export default function CartaoClasse() {
   if (!alvo && (params.membro ? outro.isLoading : true)) {
     return (
       <Tela titulo="Cartão da classe" voltar={!!params.membro}>
-        {params.membro ? <Carregando /> : <Vazio texto="Sua conta ainda não está ligada a um cadastro de membro. Fale com a secretaria do clube." />}
+        {params.membro ? <Carregando /> : perfil ? <AtivarCartao /> : <Vazio texto="Sua conta ainda não está ligada a um cadastro de membro. Fale com a secretaria do clube." />}
       </Tela>
     );
   }

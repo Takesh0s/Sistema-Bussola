@@ -50,7 +50,7 @@ sistema-bussola/
 │   ├── components/           # Design system (ui, layout, menu) e blocos de tela
 │   ├── lib/                  # Supabase, sessão, consultas e datas
 │   └── theme/                # Tokens do Figma (classe × claro/escuro)
-├── migrations/               # SQL em ordem (001 → 011)
+├── migrations/               # SQL em ordem (001 → 012)
 ├── seeds/                    # Requisitos oficiais de classes e especialidades
 ├── scripts/                  # Importadores do MDA Wiki
 ├── docs/                     # Documentação e histórico das migrations
@@ -71,7 +71,7 @@ npm run typecheck       # checagem de tipos
 
 ### Supabase
 
-1. Rode as migrations em ordem no SQL Editor: `001`, `002`, `004` a `011`
+1. Rode as migrations em ordem no SQL Editor: `001`, `002`, `004` a `012`
    (a `003` tem ids de usuários do projeto antigo e não deve ser usada).
 2. Rode os seeds: `seeds/requisitos_classes.sql` e `seeds/especialidades_oficiais/parte_01..10.sql`.
 3. Em **Authentication → URL Configuration → Redirect URLs**, adicione:

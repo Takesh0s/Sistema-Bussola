@@ -8,6 +8,7 @@ import { LogOut } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 
 import { Colunas, Tela, useLargo } from '@/components/layout';
+import { MeuCartao } from '@/components/meu-cartao';
 import { useToast } from '@/components/toast';
 import { Avatar, Botao, Capa, Cartao, Chip, Secao, Segmentado, T } from '@/components/ui';
 import * as api from '@/lib/api';
@@ -165,10 +166,11 @@ export default function Perfil() {
   return (
     <Tela titulo="Perfil" sobre={largo ? 'Conta' : undefined} gap={16}>
       {largo ? (
-        <Colunas largura={440} esquerda={<>{cabecalho}{conta}</>} direita={<><Cartao gap={12}><T s={18} w="negrito">Aparência</T>{tema}</Cartao><Cartao gap={12}>{cores}</Cartao></>} />
+        <Colunas largura={440} esquerda={<>{cabecalho}<MeuCartao />{conta}</>} direita={<><Cartao gap={12}><T s={18} w="negrito">Aparência</T>{tema}</Cartao><Cartao gap={12}>{cores}</Cartao></>} />
       ) : (
         <>
           {cabecalho}
+          <MeuCartao />
           <Secao titulo="Aparência" />
           {tema}
           {cores}
