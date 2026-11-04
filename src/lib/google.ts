@@ -1,7 +1,7 @@
 // Entrar com Google pelo Supabase.
 // Web: redireciona e volta para a própria página. Celular: abre o navegador do
 // sistema e troca o código pela sessão (PKCE).
-import { makeRedirectUri } from 'expo-auth-session';
+import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
@@ -34,9 +34,10 @@ export async function entrarComGoogle(destino = '/') {
     return;
   }
 
-  // No Expo Go vira exp://<endereço>/--/auth; no app instalado, bussola://auth.
+  // createURL usa o endereço de quem está rodando o app: no Expo Go vira
+  // exp://<endereço>/--/auth; no app instalado, bussola://auth (scheme do app.json).
   // Os dois precisam estar em Authentication → URL Configuration → Redirect URLs.
-  const redirectTo = makeRedirectUri({ scheme: 'bussola', path: 'auth' });
+  const redirectTo = Linking.createURL('auth');
   if (__DEV__) console.log('[google] redirectTo =', redirectTo);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
