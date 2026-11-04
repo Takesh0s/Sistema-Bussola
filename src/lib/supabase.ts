@@ -1,6 +1,7 @@
 // Cliente Supabase do app (Android, iOS e web).
 // Só a chave publishable vai no cliente — nunca a secret key.
 import 'react-native-url-polyfill/auto';
+import './cripto';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
