@@ -22,8 +22,20 @@ pnpm-lock.yaml
 .agents/
 skills-lock.json
 
-# ── Arquivos gerados pelo Supabase SSR (Next.js — não usamos Next aqui) ───────
-utils/
+# ── Expo ───────────────────────────────────────────────────────────────────────
+.expo/
+web-build/
+expo-env.d.ts
+.metro-health-check*
+*.tsbuildinfo
+# Pastas nativas geradas (Continuous Native Generation)
+/ios
+/android
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
 # ── Build/cache ────────────────────────────────────────────────────────────────
 dist/
