@@ -1,7 +1,13 @@
 // O Hermes (motor JS do React Native) não tem WebCrypto. O Supabase usa
-// crypto.subtle.digest('SHA-256') no PKCE; sem ele, cai no modo "plain".
-// Completamos em JavaScript puro — nada de módulo nativo, para rodar no Expo Go.
-// Só vale fora do navegador: na web, o crypto nativo já existe e não é tocado.
+// crypto.getRandomValues (verificador do PKCE) e crypto.subtle.digest('SHA-256').
+//
+// - Aleatoriedade: no app instalado (build da loja), usa o gerador seguro do
+//   sistema pelo módulo nativo ExpoCrypto. Só no Expo Go, que não traz esse
+//   módulo, cai no Math.random (não é criptograficamente seguro — serve para teste).
+// - SHA-256: em JavaScript puro. O resultado é idêntico ao nativo (é um cálculo
+//   determinístico); a diferença seria só de velocidade, irrelevante para um hash por login.
+// Na web, o crypto do navegador já existe e nada aqui é usado.
+import { requireOptionalNativeModule } from 'expo';
 
 type CryptoMinimo = {
   getRandomValues?: <T extends ArrayBufferView | null>(array: T) => T;
@@ -70,9 +76,18 @@ function paraBytes(dados: BufferSource): Uint8Array {
 const g = globalThis as unknown as { crypto?: CryptoMinimo };
 g.crypto ??= {};
 
-// O Supabase usa getRandomValues para o verificador do PKCE. Se o motor não
-// tiver, usamos Math.random — o mesmo recurso que o próprio Supabase usaria.
-if (typeof g.crypto.getRandomValues !== 'function') {
+const nativo = requireOptionalNativeModule<{ getRandomValues: (a: ArrayBufferView) => void }>('ExpoCrypto');
+
+/** true quando a aleatoriedade vem do gerador seguro do sistema. */
+export const ALEATORIO_SEGURO = typeof g.crypto.getRandomValues === 'function' || !!nativo?.getRandomValues;
+
+if (typeof g.crypto.getRandomValues !== 'function' && nativo?.getRandomValues) {
+  g.crypto.getRandomValues = <T extends ArrayBufferView | null>(array: T): T => {
+    if (array) nativo.getRandomValues(array);
+    return array;
+  };
+} else if (typeof g.crypto.getRandomValues !== 'function') {
+  if (__DEV__) console.warn('[cripto] Sem gerador seguro (Expo Go): usando Math.random só para teste.');
   g.crypto.getRandomValues = <T extends ArrayBufferView | null>(array: T): T => {
     if (array) {
       const bytes = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
