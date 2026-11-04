@@ -1,224 +1,99 @@
 # 🧭 Sistema Bússola
 
-> **Plataforma de Administração e Controle para Clubes de Desbravadores**
+> **App do Clube de Desbravadores** — Android, iOS e web com o mesmo código.
 
-Sistema web completo para gestão administrativa de clubes de desbravadores da Divisão Sul Americana. Desenvolvido em HTML5, CSS3 e JavaScript puro com backend Supabase (PostgreSQL).
-
----
-
-## 🚀 Funcionalidades
-
-| Módulo | Descrição |
-|---|---|
-| 🎖️ Conselheiros | Cadastro de líderes e conselheiros |
-| 🏕️ Unidades | Gestão de unidades com conselheiro e associados |
-| 👤 Desbravadores | Cadastro com classe, especialidades e perfil individual |
-| 💳 Mensalidades | Controle de pagamentos com filtros e toggle de status |
-| 💰 Caixa | Entradas/saídas com saldo em tempo real |
-| 📦 Patrimônio | Inventário de bens por unidade |
-| 📋 Atas e Atos | Registros oficiais com visualização e edição |
-| 📊 Relatórios | 6 tipos de PDF gerados no cliente com jsPDF |
-
-## 🔐 Autenticação
-
-- Login com e-mail e senha
-- Login social com Google OAuth
-- Proteção de rotas com verificação de sessão
-- Logout seguro
-
-## 📄 Relatórios em PDF
-
-1. **Autorização de Saída** — por unidade, com espaço para assinaturas
-2. **Fluxo de Caixa** — extrato completo com totais e saldo
-3. **Patrimônio** — inventário com estado dos itens
-4. **Livro de Atas e Atos** — conteúdo completo de cada registro
-5. **Mensalidades** — situação de pagamentos com cores por status
-6. **Relatório Geral** — visão consolidada: unidades, classes, especialidades e membros
+Complementa o SGC oficial com o dia a dia do clube: cartão de classe, especialidades,
+instruções, chamada, eventos, equipe e finanças. Cada pessoa vê o app na cor da sua classe.
 
 ---
 
-## 🛠️ Stack Tecnológica
+## Funcionalidades
 
-- **Frontend**: HTML5 · CSS3 · JavaScript ES2022
-- **Backend**: [Supabase](https://supabase.com) (PostgreSQL + Auth + PostgREST)
-- **PDF**: jsPDF + jsPDF-AutoTable
-- **Alertas**: SweetAlert2 → substituído por sistema próprio de flash messages
-- **Fonte**: Sora + JetBrains Mono (Google Fonts)
+| Tela | Para quem | O que faz |
+|---|---|---|
+| Início | Todos | Classe atual, próximos compromissos, especialidades e frequência |
+| Minha classe | Desbravadores | Cartão com requisitos por seção (regular e avançada) |
+| Especialidades | Todos | Catálogo oficial (555), busca, filtros e progresso |
+| Agenda | Todos | Eventos com seções por visibilidade (todos, liderança, direção) e modelos |
+| Instruções | Instrutores e liderança | Pedido → aceite → chamada → conclusão em lote dos requisitos |
+| Chamada | Liderança e instrutores | Presente, falta ou justificada; o tipo é definido automaticamente |
+| Unidade | Liderança | Progresso, frequência e ficha de cada desbravador |
+| Espiritual | Capelão e liderança | Participação na Classe bíblica (somente leitura) |
+| Equipe e cargos | Direção | Concessão de cargos, convites por link e exceções de unidade |
+| Finanças | Diretor, associados e tesoureiro | Mensalidades, caixa e e-mail de cobrança |
+| Perfil | Todos | Tema claro/escuro e cor do app |
+
+**Cor do app:** a paleta segue a classe — a classe do desbravador, a classe da unidade que
+o conselheiro aconselha ou, para quem concluiu Líder, Líder Máster ou Líder Máster Avançado,
+a classe de liderança atual. As cores são as mesmas variáveis do Figma.
 
 ---
 
-## 📁 Estrutura do Projeto
+## Stack
+
+- **Expo SDK 58** + **Expo Router** (Android, iOS e web; roda no Expo Go)
+- **Supabase** — Postgres, Auth (e-mail, Google) e RLS
+- **TanStack Query** com cache salvo no aparelho (abre sem internet com os últimos dados)
+- **lucide-react-native** (ícones), **expo-linear-gradient**, **Plus Jakarta Sans**, **date-fns**
+- Web publicada na **Vercel** como site estático (SPA)
+
+## Estrutura
 
 ```
 sistema-bussola/
-├── index.html                  # Login
-├── cadastro.html               # Cadastro de conta
-├── dashboard.html              # Painel de controle
-├── conselheiro.html            # Gestão de conselheiros
-├── unidade.html                # Gestão de unidades
-├── desbravador.html            # Gestão de desbravadores
-├── perfil-desbravador.html     # Perfil individual
-├── mensalidade.html            # Controle de mensalidades
-├── caixa.html                  # Controle de caixa
-├── patrimonio.html             # Controle de patrimônio
-├── atas_atos.html              # Atas e atos
-├── relatorios.html             # Central de relatórios PDF
-├── style.css                   # Design system global
-├── supabase.js                 # Cliente Supabase
-└── utils.js                    # Utilitários globais
+├── src/
+│   ├── app/                  # Rotas (cada arquivo é uma tela)
+│   │   ├── _layout.tsx       # Fontes, provedores e proteção de rotas
+│   │   ├── entrar.tsx        # Login (e-mail, CPF, Google)
+│   │   ├── convite/[token]   # Aceitar convite
+│   │   └── (app)/            # Telas logadas (barra lateral no PC, abas no celular)
+│   ├── components/           # Design system (ui, layout, menu) e blocos de tela
+│   ├── lib/                  # Supabase, sessão, consultas e datas
+│   └── theme/                # Tokens do Figma (classe × claro/escuro)
+├── migrations/               # SQL em ordem (001 → 010)
+├── seeds/                    # Requisitos oficiais de classes e especialidades
+├── scripts/                  # Importadores do MDA Wiki
+├── docs/                     # Documentação e histórico das migrations
+├── app.json                  # Configuração do Expo
+└── vercel.json               # Deploy web
 ```
 
 ---
 
-## ⚙️ Configuração e Deploy
+## Rodando
 
-### 1. Supabase
-
-Execute o SQL abaixo no seu projeto Supabase:
-
-```sql
-create extension if not exists "uuid-ossp";
-
-create table conselheiro (
-  id uuid primary key default uuid_generate_v4(),
-  nome text not null, telefone text, email text
-);
-
-create table unidade (
-  id uuid primary key default uuid_generate_v4(),
-  nome text not null,
-  conselheiro_id uuid references conselheiro(id),
-  associado1_id uuid references conselheiro(id),
-  associado2_id uuid references conselheiro(id)
-);
-
-create table desbravador (
-  id uuid primary key default uuid_generate_v4(),
-  nome text not null, unidade_id uuid references unidade(id),
-  classe_id uuid references classe(id),
-  data_nascimento date, contato text
-);
-
-create table classe (
-  id uuid primary key default uuid_generate_v4(),
-  nome text not null, descricao text
-);
-
-create table especialidades (
-  id uuid primary key default uuid_generate_v4(),
-  nome text not null, descricao text
-);
-
-create table desbravador_especialidade (
-  id uuid primary key default uuid_generate_v4(),
-  desbravador_id uuid references desbravador(id),
-  especialidade_id uuid references especialidades(id),
-  concluida boolean default false
-);
-
-create table mensalidade (
-  id uuid primary key default uuid_generate_v4(),
-  desbravador_id uuid references desbravador(id),
-  mes int check (mes >= 1 and mes <= 12),
-  ano int, valor numeric(10,2), pago boolean default false
-);
-
-create table caixa (
-  id uuid primary key default uuid_generate_v4(),
-  tipo text check (tipo in ('entrada','saida')),
-  descricao text, valor numeric(10,2),
-  data date default now()
-);
-
-create table patrimonio (
-  id uuid primary key default uuid_generate_v4(),
-  item text not null, quantidade int default 1,
-  estado text, unidade_id uuid references unidade(id)
-);
-
-create table atas (
-  id uuid primary key default uuid_generate_v4(),
-  titulo text not null, conteudo text, data date default now()
-);
-
-create table atos (
-  id uuid primary key default uuid_generate_v4(),
-  titulo text not null, conteudo text, data date default now()
-);
-
--- Classes iniciais
-insert into classe (nome, descricao) values
-('Amigo','10 anos'),('Companheiro','11 anos'),
-('Pesquisador','12 anos'),('Pioneiro','13 anos'),
-('Excursionista','14 anos'),('Guia','15-16 anos'),
-('Líder','Líder de desbravadores'),
-('Líder Máster',''),('Líder Máster Avançado','');
+```bash
+npm install
+npx expo start          # abre o QR code: leia com o Expo Go (Android/iOS)
+npx expo start --web    # no navegador
+npm run typecheck       # checagem de tipos
 ```
 
-### 2. Configurar credenciais
+### Supabase
 
-Edite `supabase.js` com a Project URL e a Publishable key do seu projeto Supabase
-(nunca a Secret key):
+1. Rode as migrations em ordem no SQL Editor: `001`, `002`, `004` a `010`
+   (a `003` tem ids de usuários do projeto antigo e não deve ser usada).
+2. Rode os seeds: `seeds/requisitos_classes.sql` e `seeds/especialidades_oficiais/parte_01..10.sql`.
+3. Em **Authentication → URL Configuration → Redirect URLs**, adicione:
+   - `http://localhost:8081/**` (web local)
+   - o domínio da Vercel, ex.: `https://sistema-bussola.vercel.app/**`
+   - `bussola://**` (app instalado) e `exp://**` (Expo Go)
 
-```js
-const db = createClient(
-  'https://SEU-PROJETO.supabase.co',
-  'sb_publishable_SUA_CHAVE'
-);
-```
+A URL e a chave publishable ficam em `src/lib/supabase.ts` (ou nas variáveis
+`EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_KEY`). **Nunca** use a secret key no app.
 
-### 3. Deploy
+### Deploy web (Vercel)
 
-O projeto é 100% estático — faça deploy em qualquer plataforma:
-
-- **GitHub Pages**: Repositório → Settings → Pages → Deploy from branch `main`
-- **Vercel / Netlify**: Arraste a pasta ou conecte o repositório
-- **Servidor próprio**: Copie os arquivos para o diretório público
-
-### 4. Google OAuth (opcional)
-
-No painel do Supabase: Authentication → Providers → Google → Configure com suas credenciais OAuth do Google Cloud Console. Adicione o domínio do seu site nas URLs autorizadas.
+Importe o repositório na Vercel. O `vercel.json` já define o build
+(`npx expo export --platform web`) e a pasta `dist`.
 
 ---
 
-## 🎯 Cobertura — Especialidade de Informática Programável (AP-052)
+## Especialidade de Informática Programável (AP-052)
 
-| Requisito | Status |
-|---|---|
-| 4.1.1 Cadastro de unidades, especialidades, classes e desbravadores | ✅ |
-| 4.1.2 Controle de mensalidade | ✅ |
-| 4.1.3 Controle de caixa | ✅ |
-| 4.1.4 Controle de custos | ✅ (saídas do caixa) |
-| 4.1.5 Controle de patrimônio | ✅ |
-| 4.1.6 Controle de Atas | ✅ |
-| 4.1.7 Controle de Atos | ✅ |
-| 4.1.8 Relatório de autorização de saída | ✅ |
-| 4.1.9 Relatório de fluxo de caixa | ✅ |
-| 4.1.10 Relatório de patrimônio | ✅ |
-| 4.1.11 Relatório Livro Ata e Atos | ✅ |
-| 4.1.12 Relatório de mensalidade | ✅ |
-| 4.1.13 Relatório geral (unidades, classes, especialidades, desbravadores) | ✅ |
-| 4.2 Sistema funcional com todos os módulos | ✅ |
-| 4.3 Código-fonte disponível | ✅ |
-| 4.4 Documentação de uso | ✅ |
-
----
-
-## 📚 Documentação
-
-A documentação completa do projeto está na pasta `/docs`:
-
-- `01_Documento_de_Visao.docx`
-- `02_Casos_de_Uso.docx`
-- `03_Arquitetura_de_Software.docx`
-- `04_Manual_do_Usuario.docx`
-- `05_Especificacao_de_Requisitos_SRS.docx`
-
----
-
-## 👨‍💻 Linguagem de Programação
-
-**JavaScript** — criado em 1995 por Brendan Eich na Netscape. A linguagem mais utilizada do mundo por mais de 12 anos consecutivos (Stack Overflow Developer Survey). Escolhida por ser executada nativamente em todos os navegadores, ter integração nativa com o SDK do Supabase e não exigir servidor ou processo de build.
+O requisito pede um software útil para o clube: o Bússola v3 cobre cadastro e progresso de
+classes e especialidades, instrução, chamada, eventos, equipe e finanças, com código-fonte
+aberto e documentação neste repositório.
 
 ---
 
