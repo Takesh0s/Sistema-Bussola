@@ -18,22 +18,25 @@ export default function Instrucoes() {
   const { clube, perfil, tem } = useAuth();
   const largo = useLargo();
   const lideranca = tem(LIDERANCA);
-  const instrutor = tem(['instrutor']);
-  const [aba, setAba] = useState<Aba>(instrutor ? 'pedidos' : 'clube');
+  const [escolhida, setAba] = useState<Aba>(tem(['instrutor']) ? 'pedidos' : 'clube');
   const [sel, setSel] = useState<string | null>(null);
 
   const q = useQuery({ queryKey: ['instrucoes', clube?.id], queryFn: () => api.instrucoes(clube!.id), enabled: !!clube });
-  const minhas = (q.data ?? []).filter((i) => i.instrutor_id === perfil?.id);
+  // Qualquer cargo pode dar instrução: "minhas" são as que me pediram, mais as
+  // de instrutor de fora que eu pedi (sou eu quem faz a chamada e conclui).
+  const minhas = (q.data ?? []).filter((i) => i.instrutor_id === perfil?.id || (!i.instrutor_id && i.atribuido_por === perfil?.id));
+  const instrutor = tem(['instrutor']) || minhas.length > 0;
   const pedidos = minhas.filter((i) => i.status === 'pendente');
-  const lista = aba === 'pedidos' ? pedidos
-    : aba === 'agendadas' ? minhas.filter((i) => i.status === 'aceita')
-      : aba === 'concluidas' ? minhas.filter((i) => i.status === 'concluida').reverse()
-        : (q.data ?? []).filter((i) => i.status !== 'cancelada');
 
   const opcoes: { valor: Aba; rotulo: string }[] = [
     ...(instrutor ? [{ valor: 'pedidos' as Aba, rotulo: `Pedidos (${pedidos.length})` }, { valor: 'agendadas' as Aba, rotulo: 'Agendadas' }, { valor: 'concluidas' as Aba, rotulo: 'Concluídas' }] : []),
     ...(lideranca ? [{ valor: 'clube' as Aba, rotulo: 'Do clube' }] : []),
   ];
+  const aba: Aba = opcoes.some((o) => o.valor === escolhida) ? escolhida : (opcoes[0]?.valor ?? 'clube');
+  const lista = aba === 'pedidos' ? pedidos
+    : aba === 'agendadas' ? minhas.filter((i) => i.status === 'aceita')
+      : aba === 'concluidas' ? minhas.filter((i) => i.status === 'concluida').reverse()
+        : (q.data ?? []).filter((i) => i.status !== 'cancelada');
 
   const abrir = (id: string) => (largo ? setSel(id) : router.push(`/instrucoes/${id}`));
 
@@ -46,7 +49,7 @@ export default function Instrucoes() {
           ? <CartaoPedido key={i.id} i={i} aoResponder={() => q.refetch()} />
           : (
             <Item key={i.id} esquerda={<Icone icone={BookOpen} />} titulo={api.tituloInstrucao(i)}
-              sub={`${api.rotulosInstrucao(i)} · ${capitalizar(dataCurta(i.data))}${i.instrutor && aba === 'clube' ? ' · ' + i.instrutor.nome_completo : ''}`}
+              sub={`${api.rotulosInstrucao(i)} · ${capitalizar(dataCurta(i.data))}${aba === 'clube' && api.nomeInstrutor(i) ? ' · ' + api.nomeInstrutor(i) : ''}`}
               direita={<Chip texto={STATUS_INSTRUCAO[i.status].rotulo} bg={STATUS_INSTRUCAO[i.status].bg} fg={STATUS_INSTRUCAO[i.status].fg} />}
               destaque={sel === i.id} onPress={() => abrir(i.id)} />
           )

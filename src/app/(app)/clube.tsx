@@ -1,4 +1,4 @@
-// Atalhos para tudo o que a pessoa gerencia (segunda aba da direção no celular).
+// Atalhos para tudo o que a pessoa gerencia (segunda aba da diretoria no celular).
 import { router } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
 import { View } from 'react-native';
@@ -13,7 +13,7 @@ export default function Clube() {
   const { membro, tem, clube } = useAuth();
   const { cores } = useTema();
   const itens = MENU.filter((m) => m.rota !== '/' && m.rota !== '/perfil' && m.visivel({ membro: !!membro, tem }));
-  const grupos = ['Geral', 'Liderança', 'Direção'] as const;
+  const grupos = ['Geral', 'Direção', 'Diretoria'] as const;
 
   return (
     <Tela titulo="Clube" sobre={clube?.nome}>

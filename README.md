@@ -50,7 +50,7 @@ sistema-bussola/
 │   ├── components/           # Design system (ui, layout, menu) e blocos de tela
 │   ├── lib/                  # Supabase, sessão, consultas e datas
 │   └── theme/                # Tokens do Figma (classe × claro/escuro)
-├── migrations/               # SQL em ordem (001 → 010)
+├── migrations/               # SQL em ordem (001 → 011)
 ├── seeds/                    # Requisitos oficiais de classes e especialidades
 ├── scripts/                  # Importadores do MDA Wiki
 ├── docs/                     # Documentação e histórico das migrations
@@ -71,7 +71,7 @@ npm run typecheck       # checagem de tipos
 
 ### Supabase
 
-1. Rode as migrations em ordem no SQL Editor: `001`, `002`, `004` a `010`
+1. Rode as migrations em ordem no SQL Editor: `001`, `002`, `004` a `011`
    (a `003` tem ids de usuários do projeto antigo e não deve ser usada).
 2. Rode os seeds: `seeds/requisitos_classes.sql` e `seeds/especialidades_oficiais/parte_01..10.sql`.
 3. Em **Authentication → URL Configuration → Redirect URLs**, adicione:
@@ -81,6 +81,23 @@ npm run typecheck       # checagem de tipos
 
 A URL e a chave publishable ficam em `src/lib/supabase.ts` (ou nas variáveis
 `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_KEY`). **Nunca** use a secret key no app.
+
+### Convite por e-mail (Edge Function `enviar-convite`)
+
+O convite chega com o nome e o brasão do clube, enviado por um Gmail do sistema.
+
+1. Crie (ou use) um Gmail só para o sistema, ative a verificação em duas etapas
+   e gere uma **senha de app** em myaccount.google.com/apppasswords.
+2. No Supabase, em **Edge Functions → Secrets**, crie:
+   - `SMTP_USER`: o Gmail do sistema
+   - `SMTP_PASS`: a senha de app (16 letras)
+   - `SITE_URLS`: `https://sistema-bussola.vercel.app,http://localhost:8081`
+     (o primeiro é o link padrão; o app no celular usa ele)
+3. Publique a função: em **Edge Functions → Deploy a new function → Via Editor**,
+   nome `enviar-convite`, cole o conteúdo de `supabase/functions/enviar-convite/index.ts`
+   e clique em **Deploy** (ou `npx supabase functions deploy enviar-convite`).
+
+Sem a função publicada, o botão "Só gerar o link" continua funcionando.
 
 ### Deploy web (Vercel)
 

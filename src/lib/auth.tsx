@@ -26,17 +26,20 @@ export const PAPEL_LABEL: Record<Papel, string> = {
 
 // Mesmos grupos das funções do banco (papeis_direcao, papeis_lideranca...)
 export const DIRECAO: Papel[] = ['admin_sistema', 'admin_associacao', 'diretor', 'diretor_associado', 'secretario', 'tesoureiro'];
+export const SECRETARIA: Papel[] = ['admin_sistema', 'admin_associacao', 'diretor', 'diretor_associado', 'secretario'];
 export const CONCEDE: Papel[] = ['admin_sistema', 'admin_associacao', 'diretor', 'diretor_associado'];
 export const FINANCAS: Papel[] = ['admin_sistema', 'diretor', 'diretor_associado', 'tesoureiro'];
 export const LIDERANCA: Papel[] = [...DIRECAO, 'conselheiro', 'conselheiro_associado'];
 export const ESPIRITUAL: Papel[] = [...LIDERANCA, 'capelao'];
+/** Quem tem qualquer cargo no clube (todos podem dar instrução). */
+export const EQUIPE: Papel[] = [...LIDERANCA, 'capelao', 'instrutor'];
 
 export type Cargo = { id: string; papel: Papel; unidade_id: string | null; clube_id: string | null; ano: number };
 export type Perfil = {
   id: string; nome_completo: string; clube_id: string | null; sexo: 'M' | 'F' | null;
   tema: 'claro' | 'escuro' | 'sistema' | null; cor_classe: string | null;
 };
-export type Clube = { id: string; nome: string; cidade: string | null };
+export type Clube = { id: string; nome: string; cidade: string | null; brasao_url: string | null };
 export type Membro = {
   id: string; nome: string; clube_id: string; unidade_id: string | null; classe_id: string | null;
   data_nascimento: string | null; sexo: 'M' | 'F' | null;
@@ -85,7 +88,7 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
       const uid = s.user.id;
       const { data: p } = await supabase
         .from('perfil_usuario')
-        .select('id, nome_completo, clube_id, sexo, tema, cor_classe, clube:clube_id(id, nome, cidade)')
+        .select('id, nome_completo, clube_id, sexo, tema, cor_classe, clube:clube_id(id, nome, cidade, brasao_url)')
         .eq('auth_user_id', uid)
         .maybeSingle();
 
@@ -109,7 +112,7 @@ export function ProvedorAuth({ children }: { children: ReactNode }) {
 
       let cl = (p?.clube as unknown as Clube | null) ?? null;
       if (!cl && m?.clube_id) {
-        const { data } = await supabase.from('clube').select('id, nome, cidade').eq('id', m.clube_id).maybeSingle();
+        const { data } = await supabase.from('clube').select('id, nome, cidade, brasao_url').eq('id', m.clube_id).maybeSingle();
         cl = data as Clube | null;
       }
 

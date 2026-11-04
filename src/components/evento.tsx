@@ -1,4 +1,4 @@
-// Evento: leitura (seções conforme a visibilidade de cada um) e editor da direção.
+// Evento: leitura (seções conforme a visibilidade de cada um) e editor da diretoria.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { ArrowDown, ArrowUp, ClipboardCheck, Lock, Trash2 } from 'lucide-react-native';
@@ -8,39 +8,41 @@ import { Pressable, View } from 'react-native';
 import * as api from '@/lib/api';
 import { DIRECAO, LIDERANCA, useAuth } from '@/lib/auth';
 import { capitalizar, dataLonga, fmt, hora } from '@/lib/datas';
+import { CampoData, CampoHora, dataISO, horaValida, juntar } from './campos';
 import { dados, mensagemErro, supabase } from '@/lib/supabase';
 import { useTema } from '@/theme';
 
 import { useToast } from './toast';
-import { Aviso, Botao, Campo, Capa, Cartao, Carregando, Chip, ChipFiltro, Erro, Secao, Segmentado, T } from './ui';
+import { Aviso, Botao, BotaoExcluir, Campo, Capa, Cartao, Carregando, Chip, ChipFiltro, Erro, Secao, Segmentado, T } from './ui';
 
 type Vis = api.Secao['visibilidade'];
 const VIS: Record<Vis, { rotulo: string; bg: 'container' | 'acentoSuave' | 'superficie2'; fg: 'sobreContainer' | 'texto' | 'texto2' }> = {
   todos: { rotulo: 'Todos', bg: 'container', fg: 'sobreContainer' },
-  lideranca: { rotulo: 'Liderança', bg: 'acentoSuave', fg: 'texto' },
-  direcao: { rotulo: 'Só direção', bg: 'superficie2', fg: 'texto2' },
+  lideranca: { rotulo: 'Equipe', bg: 'acentoSuave', fg: 'texto' },
+  direcao: { rotulo: 'Só diretoria', bg: 'superficie2', fg: 'texto2' },
 };
 
-export function periodo(e: { inicio: string; fim: string | null }) {
+// Fim sem hora é gravado às 23:59 do dia: não é mostrado como horário
+const SEM_HORA_FIM = '23:59';
+const horaFim = (fim: string) => (fmt(fim, 'HH:mm') === SEM_HORA_FIM ? null : hora(fim));
+
+export function periodo(e: { inicio: string; fim: string | null; sem_horario?: boolean }) {
   const ini = capitalizar(dataLonga(e.inicio));
+  const mesmoDia = !e.fim || fmt(e.fim, 'yyyy-MM-dd') === fmt(e.inicio, 'yyyy-MM-dd');
+  if (e.sem_horario) return mesmoDia ? ini : `${fmt(e.inicio, 'd')} a ${fmt(e.fim!, "d 'de' MMMM")}`;
   if (!e.fim) return `${ini}, ${hora(e.inicio)}`;
-  if (e.fim.slice(0, 10) === e.inicio.slice(0, 10)) return `${ini}, ${hora(e.inicio)} às ${hora(e.fim)}`;
+  const hf = horaFim(e.fim);
+  if (mesmoDia) return hf ? `${ini}, ${hora(e.inicio)} às ${hf}` : `${ini}, ${hora(e.inicio)}`;
   return `${fmt(e.inicio, 'd')} a ${fmt(e.fim, "d 'de' MMMM")}`;
 }
 
-// 'DD/MM/AAAA HH:MM' ⇄ ISO
-export function paraTexto(iso: string | null) {
-  return iso ? fmt(iso, 'dd/MM/yyyy HH:mm') : '';
-}
-export function paraISO(txt: string): string | null {
-  const m = txt.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
-  if (!m) return null;
-  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4] ?? 0), Number(m[5] ?? 0));
-  return isNaN(d.getTime()) ? null : d.toISOString();
+/** Hora do evento para as listas ('19h') ou aviso de que não tem horário. */
+export function horaEvento(e: { inicio: string; sem_horario?: boolean }) {
+  return e.sem_horario ? 'Sem horário' : hora(e.inicio);
 }
 
 function useEvento(id: string) {
-  const ev = useQuery({ queryKey: ['evento', id], queryFn: () => dados<api.Evento>(supabase.from('evento').select('id, titulo, local, inicio, fim, publicado').eq('id', id).single()) });
+  const ev = useQuery({ queryKey: ['evento', id], queryFn: () => dados<api.Evento>(supabase.from('evento').select('id, titulo, local, inicio, fim, publicado, sem_horario').eq('id', id).single()) });
   const secoes = useQuery({
     queryKey: ['secoes', id],
     queryFn: () => dados<api.Secao[]>(supabase.from('evento_secao').select('id, evento_id, titulo, conteudo, ordem, visibilidade').eq('evento_id', id).order('ordem')),
@@ -63,7 +65,7 @@ export function DetalheEvento({ id, aoEditar }: { id: string; aoEditar?: () => v
         <T s={24} w="extra" c="sobreDestaque">{e.titulo}</T>
         <T s={14} w="medio" c="sobreDestaque">{periodo(e)}{e.local ? ` · ${e.local}` : ''}</T>
       </Capa>
-      {direcao ? <Aviso tom="neutro" texto="Você vê todas as seções porque é da direção. Desbravadores veem só as marcadas como “Todos”." /> : null}
+      {direcao ? <Aviso tom="neutro" texto="Você vê todas as seções porque é da diretoria. Desbravadores veem só as marcadas como “Todos”." /> : null}
       {secoes.isLoading ? <Carregando /> : (secoes.data ?? []).map((s) => (
         <Cartao key={s.id} gap={10}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -98,8 +100,10 @@ export function EditorEvento({ id, aoSair }: { id: string; aoSair: () => void })
 
   const [titulo, setTitulo] = useState('');
   const [local, setLocal] = useState('');
-  const [inicio, setInicio] = useState('');
-  const [fim, setFim] = useState('');
+  const [dataIni, setDataIni] = useState('');
+  const [horaIni, setHoraIni] = useState('');
+  const [dataFim, setDataFim] = useState('');
+  const [horaFimTxt, setHoraFim] = useState('');
   const [lista, setLista] = useState<SecaoEdit[]>([]);
   const [removidas, setRemovidas] = useState<string[]>([]);
   const [nomeModelo, setNomeModelo] = useState('');
@@ -107,7 +111,12 @@ export function EditorEvento({ id, aoSair }: { id: string; aoSair: () => void })
 
   useEffect(() => {
     if (ev.data) {
-      setTitulo(ev.data.titulo); setLocal(ev.data.local ?? ''); setInicio(paraTexto(ev.data.inicio)); setFim(paraTexto(ev.data.fim));
+      const e = ev.data;
+      setTitulo(e.titulo); setLocal(e.local ?? '');
+      setDataIni(fmt(e.inicio, 'dd/MM/yyyy')); setHoraIni(e.sem_horario ? '' : fmt(e.inicio, 'HH:mm'));
+      const fimMesmoDia = e.fim && fmt(e.fim, 'yyyy-MM-dd') === fmt(e.inicio, 'yyyy-MM-dd');
+      setDataFim(e.fim && !fimMesmoDia ? fmt(e.fim, 'dd/MM/yyyy') : '');
+      setHoraFim(e.fim && !e.sem_horario && fmt(e.fim, 'HH:mm') !== SEM_HORA_FIM ? fmt(e.fim, 'HH:mm') : '');
     }
   }, [ev.data]);
   useEffect(() => {
@@ -131,14 +140,20 @@ export function EditorEvento({ id, aoSair }: { id: string; aoSair: () => void })
   }
 
   async function salvar(publicado?: boolean) {
-    const ini = paraISO(inicio);
-    const f = fim.trim() ? paraISO(fim) : null;
+    const di = dataISO(dataIni);
+    const df = dataFim ? dataISO(dataFim) : di;
     if (!titulo.trim()) return toast('Dê um título ao evento.', 'erro');
-    if (!ini) return toast('Início no formato DD/MM/AAAA HH:MM.', 'erro');
-    if (fim.trim() && !f) return toast('Fim no formato DD/MM/AAAA HH:MM.', 'erro');
+    if (!di) return toast('Confira a data de início (DD/MM/AAAA).', 'erro');
+    if (dataFim && !df) return toast('Confira a data de fim (DD/MM/AAAA).', 'erro');
+    if (!horaValida(horaIni) || !horaValida(horaFimTxt)) return toast('Confira os horários (HH:MM).', 'erro');
+    const semHorario = !horaIni;
+    const ini = juntar(di, horaIni || null);
+    // Fim: só quando há data ou hora de fim. Sem hora, vale até o fim do dia.
+    const f = dataFim || horaFimTxt ? juntar(df!, horaFimTxt || SEM_HORA_FIM) : null;
+    if (f && f < ini) return toast('O fim do evento precisa ser depois do início.', 'erro');
     setSalvando(true);
     try {
-      const mudanca: Record<string, unknown> = { titulo: titulo.trim(), local: local.trim() || null, inicio: ini, fim: f };
+      const mudanca: Record<string, unknown> = { titulo: titulo.trim(), local: local.trim() || null, inicio: ini, fim: f, sem_horario: semHorario };
       if (publicado !== undefined) mudanca.publicado = publicado;
       const { error } = await supabase.from('evento').update(mudanca).eq('id', id);
       if (error) throw error;
@@ -208,10 +223,15 @@ export function EditorEvento({ id, aoSair }: { id: string; aoSair: () => void })
       </View>
       <Campo rotulo="Título" value={titulo} onChangeText={setTitulo} />
       <Campo rotulo="Local" value={local} onChangeText={setLocal} placeholder="Ex.: Chácara Recanto" />
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Campo rotulo="Início" value={inicio} onChangeText={setInicio} placeholder="DD/MM/AAAA HH:MM" style={{ flex: 1 }} />
-        <Campo rotulo="Fim (opcional)" value={fim} onChangeText={setFim} placeholder="DD/MM/AAAA HH:MM" style={{ flex: 1 }} />
+      <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+        <CampoData rotulo="Data de início" valor={dataIni} aoMudar={setDataIni} style={{ flex: 1, minWidth: 140 }} />
+        <CampoHora rotulo="Hora (recomendado)" valor={horaIni} aoMudar={setHoraIni} style={{ width: 130 }} />
       </View>
+      <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+        <CampoData rotulo="Data de fim (opcional)" valor={dataFim} aoMudar={setDataFim} placeholder="Mesmo dia" style={{ flex: 1, minWidth: 140 }} />
+        <CampoHora rotulo="Hora de fim" valor={horaFimTxt} aoMudar={setHoraFim} style={{ width: 130 }} />
+      </View>
+      {!horaIni ? <Aviso tom="neutro" texto="Sem hora, o evento aparece só com a data. Informe a hora para todos saberem quando chegar." /> : null}
 
       <Secao titulo="Seções" acao="+ Adicionar seção" onAcao={() => setLista((l) => [...l, { id: `novo-${Date.now()}`, titulo: '', conteudo: '', visibilidade: 'todos' }])} />
       {lista.map((s, i) => (
@@ -223,7 +243,7 @@ export function EditorEvento({ id, aoSair }: { id: string; aoSair: () => void })
             <Pressable onPress={() => { if (!s.id.startsWith('novo')) setRemovidas((r) => [...r, s.id]); setLista((l) => l.filter((_, k) => k !== i)); }}
               hitSlop={6} accessibilityLabel="Remover seção"><Trash2 size={20} color={cores.erro} /></Pressable>
           </View>
-          <Segmentado opcoes={[{ valor: 'todos', rotulo: 'Todos' }, { valor: 'lideranca', rotulo: 'Liderança' }, { valor: 'direcao', rotulo: 'Direção' }]}
+          <Segmentado opcoes={[{ valor: 'todos', rotulo: 'Todos' }, { valor: 'lideranca', rotulo: 'Equipe' }, { valor: 'direcao', rotulo: 'Diretoria' }]}
             valor={s.visibilidade} onChange={(v) => mudar(i, { visibilidade: v })} />
           <Campo value={s.conteudo} onChangeText={(v) => mudar(i, { conteudo: v })} placeholder="Conteúdo" multiline />
         </Cartao>
@@ -244,9 +264,9 @@ export function EditorEvento({ id, aoSair }: { id: string; aoSair: () => void })
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Lock size={14} color={cores.texto2} />
-        <T s={12} c="texto2" style={{ flex: 1 }}>Rascunhos ficam visíveis só para a direção até serem publicados.</T>
+        <T s={12} c="texto2" style={{ flex: 1 }}>Rascunhos ficam visíveis só para a diretoria até serem publicados.</T>
       </View>
-      <Botao titulo="Excluir evento" variante="perigo" onPress={excluir} />
+      <BotaoExcluir titulo="Excluir evento" aviso="O evento e suas seções serão apagados para todos." onConfirmar={excluir} />
     </View>
   );
 }

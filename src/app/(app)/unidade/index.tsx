@@ -1,36 +1,49 @@
 // Unidade: desbravadores, progresso na classe, especialidades e frequência.
+// A secretaria (diretor, associados e secretário) cria unidades e cadastra desbravadores.
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Users } from 'lucide-react-native';
+import { Pencil, Plus, UserPlus, Users } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import { Tela, useLargo } from '@/components/layout';
 import { Avatar, Botao, Capa, Cartao, Carregando, Chip, ChipFiltro, Erro, Item, Progresso, Secao, Selo, T, Vazio } from '@/components/ui';
 import * as api from '@/lib/api';
-import { unidadeAconselhada, useAuth } from '@/lib/auth';
+import { SECRETARIA, unidadeAconselhada, useAuth } from '@/lib/auth';
 import { dados, supabase } from '@/lib/supabase';
 import { useTema } from '@/theme';
 
 const SEXO = { masculina: 'Masculina', feminina: 'Feminina', mista: 'Mista' } as const;
+/** Valor do seletor para os desbravadores ainda sem unidade. */
+const SEM = 'sem';
 
 export default function Unidade() {
-  const { clube, cargos } = useAuth();
+  const { clube, cargos, tem } = useAuth();
   const { cores } = useTema();
   const largo = useLargo();
+  const secretaria = tem(SECRETARIA);
   const unidades = useQuery({ queryKey: ['unidades', clube?.id], queryFn: () => api.unidadesDoClube(clube!.id), enabled: !!clube });
+  const semUnidade = useQuery({ queryKey: ['membros-unidade', 'sem', clube?.id], queryFn: () => api.membrosSemUnidade(clube!.id), enabled: !!clube && secretaria });
   const [id, setId] = useState<string | null>(unidadeAconselhada(cargos));
-  useEffect(() => { if (!id && unidades.data?.length) setId(unidades.data[0].id); }, [id, unidades.data]);
+  useEffect(() => {
+    if (id && id !== SEM && unidades.data && !unidades.data.some((x) => x.id === id)) setId(null);
+    else if (!id && unidades.data?.length) setId(unidades.data[0].id);
+    else if (!id && semUnidade.data?.length) setId(SEM);
+  }, [id, unidades.data, semUnidade.data]);
   const u = unidades.data?.find((x) => x.id === id);
 
-  const membros = useQuery({ queryKey: ['membros-unidade', id], queryFn: () => api.membrosDaUnidade(id!), enabled: !!id });
+  const membros = useQuery({
+    queryKey: ['membros-unidade', id, clube?.id],
+    queryFn: () => (id === SEM ? api.membrosSemUnidade(clube!.id) : api.membrosDaUnidade(id!)),
+    enabled: !!id && !!clube,
+  });
   const lista = membros.data ?? [];
   const prog = useQuery({ queryKey: ['prog-unidade', id, lista.length], queryFn: () => api.progressoNaClasse(lista), enabled: lista.length > 0 });
   const freq = useQuery({ queryKey: ['freq', lista.map((m) => m.id).join(',')], queryFn: () => api.marcacoesDesde(lista.map((m) => m.id), api.inicioTrimestreISO()), enabled: lista.length > 0 });
   const conselho = useQuery({
     queryKey: ['conselho', id],
     queryFn: () => dados<{ papel: string; perfil: { nome_completo: string } }[]>(supabase.from('perfil_papel').select('papel, perfil:perfil_id(nome_completo)').eq('unidade_id', id!).eq('ativo', true) as never),
-    enabled: !!id,
+    enabled: !!id && id !== SEM,
   });
 
   const conselheiro = conselho.data?.find((c) => c.papel === 'conselheiro')?.perfil.nome_completo;
@@ -56,16 +69,27 @@ export default function Unidade() {
     </Capa>
   ) : null;
 
-  const acoes = id ? (
+  const acoes = u ? (
     <View style={{ flexDirection: 'row', gap: 10 }}>
       <Botao titulo="Fazer chamada" cheio={!largo} onPress={() => router.push(`/chamada?unidade=${id}`)} />
       <Botao titulo="Pedir instrução" variante="sec" cheio={!largo} onPress={() => router.push(u?.classe ? `/instrucoes/nova?classe=${u.classe.id}` : '/instrucoes/nova')} />
     </View>
   ) : null;
 
-  const seletor = (unidades.data?.length ?? 0) > 1 ? (
+  const qtdSem = semUnidade.data?.length ?? 0;
+  const seletor = (unidades.data?.length ?? 0) > 1 || qtdSem ? (
     <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-      {unidades.data!.map((x) => <ChipFiltro key={x.id} texto={x.nome} ativo={x.id === id} onPress={() => setId(x.id)} />)}
+      {(unidades.data ?? []).map((x) => <ChipFiltro key={x.id} texto={x.nome} ativo={x.id === id} onPress={() => setId(x.id)} />)}
+      {qtdSem ? <ChipFiltro texto={`Sem unidade (${qtdSem})`} ativo={id === SEM} onPress={() => setId(SEM)} /> : null}
+    </View>
+  ) : null;
+
+  const cadastro = secretaria ? (
+    <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+      <Botao titulo="Adicionar desbravador" icone={UserPlus} variante="sec" pequeno
+        onPress={() => router.push(u ? `/unidade/cadastro?unidade=${u.id}` : '/unidade/cadastro')} />
+      {u ? <Botao titulo="Editar unidade" icone={Pencil} variante="out" pequeno onPress={() => router.push(`/unidade/editar?id=${u.id}`)} /> : null}
+      <Botao titulo="Nova unidade" icone={Plus} variante="out" pequeno onPress={() => router.push('/unidade/editar')} />
     </View>
   ) : null;
 
@@ -88,12 +112,25 @@ export default function Unidade() {
   });
 
   if (unidades.isLoading) return <Tela titulo="Unidade"><Carregando /></Tela>;
-  if (!unidades.data?.length) return <Tela titulo="Unidade"><Vazio texto="O clube ainda não tem unidades cadastradas." icone={Users} /></Tela>;
+  if (!unidades.data?.length && !qtdSem) {
+    return (
+      <Tela titulo="Unidade">
+        <Vazio texto="O clube ainda não tem unidades cadastradas." icone={Users} />
+        {secretaria ? (
+          <View style={{ alignItems: 'center', gap: 10 }}>
+            <Botao titulo="Criar a primeira unidade" icone={Plus} onPress={() => router.push('/unidade/editar')} />
+            <Botao titulo="Cadastrar desbravador sem unidade" variante="ghost" onPress={() => router.push('/unidade/cadastro')} />
+          </View>
+        ) : <T s={13} c="texto2" centro>A secretaria do clube cadastra as unidades e os desbravadores.</T>}
+      </Tela>
+    );
+  }
 
   return (
-    <Tela titulo={u ? `Unidade ${u.nome}` : 'Unidade'} sobre={u?.classe?.nome} gap={12} acoes={largo ? acoes : undefined}
+    <Tela titulo={u ? `Unidade ${u.nome}` : id === SEM ? 'Sem unidade' : 'Unidade'} sobre={u?.classe?.nome} gap={12} acoes={largo ? acoes : undefined}
       aoAtualizar={() => { membros.refetch(); prog.refetch(); freq.refetch(); }} atualizando={membros.isRefetching}>
       {seletor}
+      {cadastro}
       {capa}
       {!largo ? acoes : null}
       <Secao titulo="Desbravadores" />

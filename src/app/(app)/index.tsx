@@ -10,11 +10,11 @@ import {
   Avatar, Botao, Capa, Cartao, Chip, FaixaClasse, Icone, Item, Numero, Progresso, Secao, Selo, T, Vazio,
 } from '@/components/ui';
 import * as api from '@/lib/api';
-import { LIDERANCA, primeiroNome, unidadeAconselhada, useAuth } from '@/lib/auth';
+import { LIDERANCA, primeiroNome, useAuth } from '@/lib/auth';
 import { capitalizar, dataCurta, dataLonga, fmt } from '@/lib/datas';
 
 export default function Inicio() {
-  const { perfil, membro, clube, cargos, tem } = useAuth();
+  const { perfil, membro, clube, tem } = useAuth();
   const largo = useLargo();
   const nome = primeiroNome(perfil?.nome_completo ?? membro?.nome);
 
@@ -54,18 +54,19 @@ export default function Inicio() {
       <Tela titulo={`Olá${nome ? ', ' + nome : ''}`}>
         <Cartao>
           <T w="negrito">Sua conta ainda não está ligada a um clube</T>
-          <T s={14} c="texto2">Peça à direção do seu clube um link de convite. Ao abrir o link, sua conta é vinculada com o cargo certo.</T>
+          <T s={14} c="texto2">Peça à diretoria do seu clube um link de convite. Ao abrir o link, sua conta é vinculada com o cargo certo.</T>
         </Cartao>
       </Tela>
     );
   }
 
   const hoje = api.hojeISO();
-  const proximosEventos = (agenda.data ?? []).filter((e) => e.inicio.slice(0, 10) >= hoje).slice(0, 3);
+  // Evento em andamento (acampamento que já começou) continua em "Próximos" até o último dia
+  const proximosEventos = (agenda.data ?? []).filter((e) => (e.fim ?? e.inicio).slice(0, 10) >= hoje).slice(0, 3);
   const meuPerfil = perfil?.id;
   const proximasInstr = (instr.data ?? [])
     .filter((i) => i.data >= hoje && (i.status === 'aceita' || (i.status === 'pendente' && i.instrutor_id === meuPerfil)))
-    .filter((i) => i.instrutor_id === meuPerfil || tem(LIDERANCA))
+    .filter((i) => i.instrutor_id === meuPerfil || i.atribuido_por === meuPerfil || tem(LIDERANCA))
     .slice(0, 3);
 
   const saudacao = (
@@ -115,7 +116,7 @@ export default function Inicio() {
       <Secao titulo="Próximos" acao="Ver agenda" onAcao={() => router.push('/agenda')} />
       {proximasInstr.map((i) => (
         <Item key={i.id} esquerda={<Icone icone={BookOpen} />} titulo={`Instrução · ${api.tituloInstrucao(i)}`}
-          sub={`${capitalizar(dataCurta(i.data))}${i.inicio ? ', ' + api.horario(i) : ''} · ${i.instrutor?.nome_completo ?? ''}`}
+          sub={`${capitalizar(dataCurta(i.data))}${i.inicio ? ', ' + api.horario(i) : ''} · ${api.nomeInstrutor(i)}`}
           direita={i.status === 'pendente' ? <Chip texto="Responder" bg="terciaria" fg="sobreTerciaria" /> : undefined}
           onPress={() => router.push(`/instrucoes/${i.id}`)} />
       ))}
@@ -153,10 +154,10 @@ export default function Inicio() {
     </View>
   ) : null;
 
-  const atalhos = MENU.filter((m) => m.grupo === 'Liderança' || m.grupo === 'Direção').filter((m) => m.visivel({ membro: !!membro, tem }));
+  const atalhos = MENU.filter((m) => m.grupo === 'Direção' || m.grupo === 'Diretoria').filter((m) => m.visivel({ membro: !!membro, tem }));
   const blocoAtalhos = atalhos.length ? (
     <View style={{ gap: 10 }}>
-      <Secao titulo={unidadeAconselhada(cargos) ? 'Liderança' : 'Gerenciar'} />
+      <Secao titulo="Gerenciar" />
       <Grade colunas={2} gap={10}>
         {atalhos.map((m) => (
           <Item key={m.rota} esquerda={<Icone icone={m.icone} />} titulo={m.rotulo} sub={m.descricao} linhasSub={1}

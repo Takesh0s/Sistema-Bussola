@@ -1,11 +1,13 @@
 // Itens de navegação e quem vê cada um (os mesmos critérios das policies do banco).
+// Grupos: "Direção" é o trabalho com os desbravadores (conselheiros, capelão,
+// instrutores); "Diretoria" é diretor, associados, secretário e tesoureiro.
 import type { LucideIcon } from 'lucide-react-native';
 import {
   Award, BookOpen, CalendarDays, ClipboardCheck, GraduationCap, Heart, House, LayoutGrid,
   Shield, User, Users, Wallet,
 } from 'lucide-react-native';
 
-import { DIRECAO, ESPIRITUAL, FINANCAS, LIDERANCA, Papel } from '@/lib/auth';
+import { DIRECAO, EQUIPE, ESPIRITUAL, FINANCAS, LIDERANCA, Papel } from '@/lib/auth';
 
 export type Acesso = { membro: boolean; tem: (p: Papel[]) => boolean };
 
@@ -14,7 +16,7 @@ export type ItemMenu = {
   rotulo: string;
   descricao: string;
   icone: LucideIcon;
-  grupo?: 'Liderança' | 'Direção' | 'Conta';
+  grupo?: 'Direção' | 'Diretoria' | 'Conta';
   visivel: (a: Acesso) => boolean;
 };
 
@@ -26,12 +28,12 @@ export const MENU: ItemMenu[] = [
   { rota: '/classe', rotulo: 'Minha classe', descricao: 'Cartão e requisitos da classe', icone: GraduationCap, visivel: (a) => a.membro },
   { rota: '/especialidades', rotulo: 'Especialidades', descricao: 'Catálogo oficial e seu progresso', icone: Award, visivel: sempre },
   { rota: '/agenda', rotulo: 'Agenda', descricao: 'Eventos, acampamentos e reuniões', icone: CalendarDays, visivel: sempre },
-  { rota: '/instrucoes', rotulo: 'Instruções', descricao: 'Pedidos, aceite e conclusão de requisitos', icone: BookOpen, grupo: 'Liderança', visivel: liderancaOuInstrutor },
-  { rota: '/chamada', rotulo: 'Chamada', descricao: 'Presença por unidade e atividade', icone: ClipboardCheck, grupo: 'Liderança', visivel: liderancaOuInstrutor },
-  { rota: '/unidade', rotulo: 'Unidade', descricao: 'Desbravadores, progresso e frequência', icone: Users, grupo: 'Liderança', visivel: (a) => a.tem(LIDERANCA) },
-  { rota: '/espiritual', rotulo: 'Espiritual', descricao: 'Participação na Classe bíblica', icone: Heart, grupo: 'Liderança', visivel: (a) => a.tem(ESPIRITUAL) },
-  { rota: '/equipe', rotulo: 'Equipe e cargos', descricao: 'Cargos, convites e concessões', icone: Shield, grupo: 'Direção', visivel: (a) => a.tem(DIRECAO) },
-  { rota: '/financas', rotulo: 'Finanças', descricao: 'Mensalidades, caixa e cobranças', icone: Wallet, grupo: 'Direção', visivel: (a) => a.tem(FINANCAS) },
+  { rota: '/instrucoes', rotulo: 'Instruções', descricao: 'Pedidos, aceite e conclusão de requisitos', icone: BookOpen, grupo: 'Direção', visivel: (a) => a.tem(EQUIPE) },
+  { rota: '/chamada', rotulo: 'Chamada', descricao: 'Presença por unidade e atividade', icone: ClipboardCheck, grupo: 'Direção', visivel: liderancaOuInstrutor },
+  { rota: '/unidade', rotulo: 'Unidade', descricao: 'Desbravadores, progresso e frequência', icone: Users, grupo: 'Direção', visivel: (a) => a.tem(LIDERANCA) },
+  { rota: '/espiritual', rotulo: 'Espiritual', descricao: 'Participação na Classe bíblica', icone: Heart, grupo: 'Direção', visivel: (a) => a.tem(ESPIRITUAL) },
+  { rota: '/equipe', rotulo: 'Equipe e cargos', descricao: 'Cargos, convites e concessões', icone: Shield, grupo: 'Diretoria', visivel: (a) => a.tem(DIRECAO) },
+  { rota: '/financas', rotulo: 'Finanças', descricao: 'Mensalidades, caixa e cobranças', icone: Wallet, grupo: 'Diretoria', visivel: (a) => a.tem(FINANCAS) },
   { rota: '/perfil', rotulo: 'Perfil', descricao: 'Conta, tema e cor do app', icone: User, grupo: 'Conta', visivel: sempre },
 ];
 

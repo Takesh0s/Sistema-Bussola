@@ -113,7 +113,7 @@ function Formulario() {
 
       <Cartao bg="acentoSuave" borda={false} gap={6}>
         <T w="negrito">Recebeu um convite?</T>
-        <T s={14} c="texto2">Abra o link enviado pela direção do seu clube para criar sua conta já com o cargo certo.</T>
+        <T s={14} c="texto2">Abra o link enviado pela diretoria do seu clube para criar sua conta já com o cargo certo.</T>
       </Cartao>
     </View>
   );

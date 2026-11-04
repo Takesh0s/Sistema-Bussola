@@ -6,13 +6,14 @@ import { View } from 'react-native';
 import { Tela } from '@/components/layout';
 import { Aviso, Avatar, Botao, Carregando, Chip, Marca, Numero, Secao, T } from '@/components/ui';
 import * as api from '@/lib/api';
-import { Membro } from '@/lib/auth';
+import { Membro, SECRETARIA, useAuth } from '@/lib/auth';
 import { dados, supabase } from '@/lib/supabase';
 import { useTema } from '@/theme';
 
 export default function FichaMembro() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { cores } = useTema();
+  const { tem } = useAuth();
 
   const m = useQuery({
     queryKey: ['membro', id],
@@ -31,7 +32,8 @@ export default function FichaMembro() {
   const concluidas = Object.values(esp.data ?? {}).filter((p) => p.concluida).length;
 
   return (
-    <Tela titulo={d?.nome.split(' ')[0] ?? 'Desbravador'} voltar="/unidade" rotuloVoltar="Unidade" gap={12}>
+    <Tela titulo={d?.nome.split(' ')[0] ?? 'Desbravador'} voltar="/unidade" rotuloVoltar="Unidade" gap={12}
+      acoes={tem(SECRETARIA) ? <Botao titulo="Editar cadastro" variante="out" pequeno onPress={() => router.push(`/unidade/cadastro?id=${id}`)} /> : undefined}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
         <Avatar nome={d?.nome} tamanho={64} />
         <View style={{ flex: 1, gap: 4 }}>

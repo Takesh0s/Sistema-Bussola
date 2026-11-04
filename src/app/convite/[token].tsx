@@ -7,13 +7,13 @@ import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useToast } from '@/components/toast';
-import { Aviso, Botao, Campo, Capa, Cartao, Carregando, Selo, T } from '@/components/ui';
+import { Aviso, Botao, Brasao, Campo, Capa, Cartao, Carregando, T } from '@/components/ui';
 import { PAPEL_LABEL, Papel, useAuth } from '@/lib/auth';
 import { entrarComGoogle } from '@/lib/google';
 import { dados, mensagemErro, supabase } from '@/lib/supabase';
 import { useTema } from '@/theme';
 
-type Info = { clube_nome: string; clube_cidade: string | null; papel: Papel; valido: boolean };
+type Info = { clube_nome: string; clube_cidade: string | null; papel: Papel; valido: boolean; brasao_url: string | null; unidade_nome: string | null };
 
 export default function Convite() {
   const { token } = useLocalSearchParams<{ token: string }>();
@@ -72,19 +72,19 @@ export default function Convite() {
     <ScrollView style={{ flex: 1, backgroundColor: cores.fundo }} contentContainerStyle={{ padding: 20, paddingTop: insets.top + 24, alignItems: 'center' }}>
       <View style={{ width: '100%', maxWidth: 460, gap: 16 }}>
         <View style={{ alignItems: 'center', gap: 10 }}>
-          <Selo tamanho={64} />
-          <T s={28} w="extra">Bússola</T>
+          <Brasao url={info.data?.brasao_url} tamanho={72} />
+          <T s={28} w="extra">{info.data?.clube_nome ?? 'Bússola'}</T>
         </View>
         {info.isLoading ? <Carregando /> : !i ? (
-          <Aviso tom="alerta" texto="Convite não encontrado. Confira o link com a direção do clube." />
+          <Aviso tom="alerta" texto="Convite não encontrado. Confira o link com a diretoria do clube." />
         ) : !i.valido ? (
-          <Aviso tom="alerta" texto="Este convite já foi usado ou expirou. Peça um novo à direção do clube." />
+          <Aviso tom="alerta" texto="Este convite já foi usado ou expirou. Peça um novo à diretoria do clube." />
         ) : (
           <>
             <Capa>
               <T s={13} w="negrito" c="sobreDestaque" caixaAlta>Convite</T>
               <T s={24} w="extra" c="sobreDestaque">{i.clube_nome}</T>
-              <T s={14} w="medio" c="sobreDestaque">{[i.clube_cidade, `Cargo: ${PAPEL_LABEL[i.papel] ?? i.papel}`].filter(Boolean).join(' · ')}</T>
+              <T s={14} w="medio" c="sobreDestaque">{[i.clube_cidade, `Cargo: ${PAPEL_LABEL[i.papel] ?? i.papel}${i.unidade_nome ? ` da unidade ${i.unidade_nome}` : ''}`].filter(Boolean).join(' · ')}</T>
             </Capa>
             {sessao ? (
               <Cartao gap={12}>

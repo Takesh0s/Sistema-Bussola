@@ -36,6 +36,14 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 120
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Bússola usa suas fotos para enviar o brasão do clube.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
       ]
     ]
   }

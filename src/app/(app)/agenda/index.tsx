@@ -6,13 +6,13 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { DetalheEvento, EditorEvento } from '@/components/evento';
+import { DetalheEvento, EditorEvento, horaEvento } from '@/components/evento';
 import { Tela, useLargo } from '@/components/layout';
 import { useToast } from '@/components/toast';
 import { Botao, Carregando, Chip, Erro, Item, Segmentado, T, Vazio } from '@/components/ui';
 import * as api from '@/lib/api';
 import { DIRECAO, useAuth } from '@/lib/auth';
-import { dia, diaSemanaCurto, hora, mesAno } from '@/lib/datas';
+import { dia, diaSemanaCurto, mesAno } from '@/lib/datas';
 import { mensagemErro, supabase } from '@/lib/supabase';
 import { useTema } from '@/theme';
 
@@ -68,7 +68,7 @@ export default function Agenda() {
       <View key={e.id} style={{ gap: 10 }}>
         {cab ? <T s={12} w="negrito" c="texto2" caixaAlta style={{ paddingTop: 6 }}>{mes}</T> : null}
         <Item esquerda={<BlocoData iso={e.inicio} destaque={selecionado === e.id} />} titulo={e.titulo}
-          sub={`${hora(e.inicio)}${e.local ? ' · ' + e.local : ''}`}
+          sub={`${horaEvento(e)}${e.local ? ' · ' + e.local : ''}`}
           direita={<Chip texto={e.publicado ? 'Publicado' : 'Rascunho'} bg={e.publicado ? 'sucesso' : 'aviso'} fg="superficie" />}
           destaque={selecionado === e.id} onPress={() => abrir(e.id)} />
       </View>

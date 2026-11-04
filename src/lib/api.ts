@@ -8,7 +8,7 @@ export type ReqEspecialidade = { id: string; parent_id: string | null; numero: n
 export type Classe = { id: string; nome: string; ordem: number | null; tipo: 'regular' | 'lideranca' | null; nome_avancada: string | null };
 export type Inscricao = { id: string; tipo: 'regular' | 'avancada' | 'agrupada'; prazo: string; status: string; faixa_idade: number | null; classe: Classe | null };
 export type Feito = { requisito_classe_id: string | null; requisito_id: string | null; requisito_agrupada_id: string | null; concluido: boolean; concluido_em: string | null; avaliador: { nome_completo: string } | null };
-export type Evento = { id: string; titulo: string; local: string | null; inicio: string; fim: string | null; publicado: boolean };
+export type Evento = { id: string; titulo: string; local: string | null; inicio: string; fim: string | null; publicado: boolean; sem_horario: boolean };
 export type Secao = { id: string; evento_id: string; titulo: string; conteudo: string | null; ordem: number; visibilidade: 'todos' | 'lideranca' | 'direcao' };
 export type Unidade = { id: string; nome: string; sexo: 'masculina' | 'feminina' | 'mista'; classe: { id: string; nome: string } | null };
 export type MembroLinha = { id: string; nome: string; sexo: 'M' | 'F' | null; data_nascimento: string | null; unidade_id: string | null; classe: { id: string; nome: string } | null };
@@ -191,6 +191,12 @@ export async function membrosDaUnidade(unidadeId: string) {
   );
 }
 
+export async function membrosSemUnidade(clubeId: string) {
+  return dados<MembroLinha[]>(
+    supabase.from('desbravador').select('id, nome, sexo, data_nascimento, unidade_id, classe:classe_id(id, nome)').eq('clube_id', clubeId).is('unidade_id', null).order('nome') as never,
+  );
+}
+
 export async function membrosDoClube(clubeId: string) {
   return dados<MembroLinha[]>(
     supabase.from('desbravador').select('id, nome, sexo, data_nascimento, unidade_id, classe:classe_id(id, nome)').eq('clube_id', clubeId).order('nome') as never,
@@ -227,7 +233,7 @@ export async function progressoNaClasse(membros: MembroLinha[]) {
 
 // ── Eventos ─────────────────────────────────────────────────────────────────
 export async function eventos(clubeId: string) {
-  return dados<Evento[]>(supabase.from('evento').select('id, titulo, local, inicio, fim, publicado').eq('clube_id', clubeId).order('inicio'));
+  return dados<Evento[]>(supabase.from('evento').select('id, titulo, local, inicio, fim, publicado, sem_horario').eq('clube_id', clubeId).order('inicio'));
 }
 
 // ── Instruções ──────────────────────────────────────────────────────────────
@@ -240,13 +246,15 @@ export type ItemInstrucao = {
 export type Instrucao = {
   id: string; clube_id: string; data: string; inicio: string | null; fim: string | null; local: string | null;
   status: 'pendente' | 'aceita' | 'recusada' | 'concluida' | 'cancelada'; observacao: string | null;
-  instrutor_id: string; atribuido_por: string | null;
+  instrutor_id: string | null; instrutor_externo: string | null; atribuido_por: string | null;
   instrutor: { nome_completo: string } | null; atribuidor: { nome_completo: string } | null;
+  especialidade_id: string | null; esp: { id: string; nome: string; codigo: string | null } | null;
   itens: ItemInstrucao[];
 };
 
-const CAMPOS_INSTRUCAO = `id, clube_id, data, inicio, fim, local, status, observacao, instrutor_id, atribuido_por,
+const CAMPOS_INSTRUCAO = `id, clube_id, data, inicio, fim, local, status, observacao, instrutor_id, instrutor_externo, atribuido_por,
   instrutor:instrutor_id(nome_completo), atribuidor:atribuido_por(nome_completo),
+  especialidade_id, esp:especialidade_id(id, nome, codigo),
   itens:instrucao_requisito(id,
     requisito_classe:requisito_classe_id(id, rotulo, texto, classe:classe_id(id, nome)),
     requisito:requisito_id(id, rotulo, texto, esp:especialidade_id(nome, codigo)),
@@ -261,6 +269,7 @@ export async function instrucao(id: string) {
 }
 
 export function tituloInstrucao(i: Instrucao) {
+  if (i.esp) return i.esp.nome;
   const nomes = new Set<string>();
   for (const it of i.itens) {
     if (it.requisito?.esp) nomes.add(it.requisito.esp.nome);
@@ -270,7 +279,13 @@ export function tituloInstrucao(i: Instrucao) {
   return [...nomes].join(' · ') || 'Instrução';
 }
 
+/** Nome de quem dá a instrução (do clube ou de fora). */
+export function nomeInstrutor(i: Instrucao) {
+  return i.instrutor?.nome_completo ?? (i.instrutor_externo ? `${i.instrutor_externo} (de fora)` : '');
+}
+
 export function rotulosInstrucao(i: Instrucao) {
+  if (i.esp && !i.itens.length) return 'Especialidade completa';
   return i.itens.map((it) => it.requisito_classe?.rotulo ?? it.requisito?.rotulo ?? it.agrupada?.rotulo).filter(Boolean).join(', ');
 }
 
@@ -278,7 +293,7 @@ export function horario(i: { inicio: string | null; fim: string | null }) {
   const h = (t: string | null) => {
     if (!t) return '';
     const [hh, mm] = t.split(':');
-    return `${Number(hh)}h${mm && mm !== '00' ? mm : ''}`;
+    return `${Number(hh) % 24}h${mm && mm !== '00' ? mm : ''}`;
   };
   if (i.inicio && i.fim) return `${h(i.inicio)} às ${h(i.fim)}`;
   return h(i.inicio);

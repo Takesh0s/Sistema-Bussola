@@ -10,7 +10,7 @@ import { PAPEL_LABEL, useAuth } from '@/lib/auth';
 import { useTema } from '@/theme';
 
 import { abasDoCelular, MENU, rotaAtiva } from './menu';
-import { Avatar, Selo, T } from './ui';
+import { Avatar, Brasao, T } from './ui';
 
 export const LARGURA_PC = 1024;
 
@@ -54,7 +54,7 @@ function BarraLateral() {
   return (
     <View style={{ width: 272, backgroundColor: cores.superficie, borderRightWidth: 1, borderColor: cores.borda, paddingHorizontal: 20, paddingVertical: 28 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 6 }}>
-        <Selo tamanho={34} />
+        <Brasao url={clube?.brasao_url} tamanho={34} />
         <T s={20} w="extra">Bússola</T>
       </View>
       {clube ? <T s={12} w="medio" c="texto2" style={{ paddingLeft: 44, paddingBottom: 12 }} linhas={1}>{clube.nome}</T> : <View style={{ height: 12 }} />}

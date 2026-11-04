@@ -40,7 +40,22 @@ export function mensagemErro(e: unknown): string {
   if (err.hint) return err.hint;
   if (err.code === '42501') return 'Você não tem permissão para isso.';
   if (err.code === '23505') return 'Já existe um registro igual.';
+  if (err.code === '23514') {
+    const regra = Object.keys(REGRAS).find((r) => err.message?.includes(r));
+    return regra ? REGRAS[regra] : 'Algum campo está com um valor que não é aceito. Confira e tente de novo.';
+  }
   return err.message ?? 'Algo deu errado.';
+}
+
+// Regras (check constraints) do banco → mensagem para quem usa o app
+const REGRAS: Record<string, string> = {
+  instrucao_horario: 'O horário de fim precisa ser depois do início.',
+  evento_periodo: 'O fim do evento precisa ser depois do início.',
+  instrucao_um_instrutor: 'Escolha um instrutor do clube ou informe o nome do instrutor de fora.',
+  convite_email_check: 'Esse e-mail não parece válido.',
+  clube_brasao_url_check: 'Não foi possível salvar o brasão. Envie a imagem de novo.',
+  desbravador_sexo_check: 'Escolha o sexo do desbravador.',
+  unidade_sexo_check: 'Escolha se a unidade é masculina, feminina ou mista.',
 }
 
 /** Desembrulha { data, error } e lança o erro, para usar com React Query. */

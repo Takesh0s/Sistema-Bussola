@@ -2,9 +2,10 @@
 // dados enquanto busca os novos (e continua legível sem internet).
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
-import { QueryClient } from '@tanstack/react-query';
+import { focusManager, QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ReactNode } from 'react';
+import { AppState, Platform } from 'react-native';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,6 +15,24 @@ export const queryClient = new QueryClient({
       retry: 1,
     },
   },
+});
+
+// Atualiza os dados ao voltar para o app: no celular, quando ele volta ao
+// primeiro plano; no navegador, ao voltar para a aba ou para a janela (o padrão
+// só olhava a aba, e trocar de janela não atualizava nada).
+focusManager.setEventListener((aoFocar) => {
+  if (Platform.OS !== 'web') {
+    const sub = AppState.addEventListener('change', (estado) => aoFocar(estado === 'active'));
+    return () => sub.remove();
+  }
+  if (typeof window === 'undefined') return undefined;
+  const avisar = () => aoFocar();
+  window.addEventListener('focus', avisar);
+  document.addEventListener('visibilitychange', avisar);
+  return () => {
+    window.removeEventListener('focus', avisar);
+    document.removeEventListener('visibilitychange', avisar);
+  };
 });
 
 const persister = createAsyncStoragePersister({ storage: AsyncStorage, key: 'bussola.cache' });

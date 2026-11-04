@@ -2,10 +2,10 @@
 // Toda cor vem do tema: nada de hex solto nas telas.
 import { LinearGradient } from 'expo-linear-gradient';
 import type { LucideIcon } from 'lucide-react-native';
-import { Check, X } from 'lucide-react-native';
-import { ReactNode } from 'react';
+import { Check, Trash2, X } from 'lucide-react-native';
+import { ReactNode, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Pressable, StyleProp, StyleSheet, Switch, Text, TextInput,
+  ActivityIndicator, Image, Pressable, StyleProp, StyleSheet, Switch, Text, TextInput,
   TextInputProps, TextStyle, View, ViewStyle,
 } from 'react-native';
 
@@ -88,6 +88,18 @@ export function Selo({ tamanho = 34 }: { tamanho?: number }) {
   );
 }
 
+/** Brasão do clube (foto enviada pela direção); sem foto, mostra o selo da classe. */
+export function Brasao({ url, tamanho = 34 }: { url?: string | null; tamanho?: number }) {
+  const { cores } = useTema();
+  const [falhou, setFalhou] = useState(false);
+  useEffect(() => setFalhou(false), [url]);
+  if (!url || falhou) return <Selo tamanho={tamanho} />;
+  return (
+    <Image source={{ uri: url }} onError={() => setFalhou(true)} accessibilityLabel="Brasão do clube" resizeMode="contain"
+      style={{ width: tamanho, height: tamanho, borderRadius: Math.round(tamanho * 0.2), backgroundColor: cores.superficie2 }} />
+  );
+}
+
 // ── Botões e controles ──────────────────────────────────────────────────────
 type Variante = 'pri' | 'sec' | 'out' | 'ghost' | 'perigo' | 'inverso';
 type BotaoProps = {
@@ -117,6 +129,41 @@ export function Botao({ titulo, onPress, variante = 'pri', icone: Icone, carrega
         </LinearGradient>
       ) : conteudo}
     </Pressable>
+  );
+}
+
+/**
+ * Excluir em dois toques: o primeiro troca o botão por "Confirmar" e "Cancelar"
+ * (volta sozinho em 6 s). Pequeno e discreto, para não ser clicado sem querer.
+ */
+export function BotaoExcluir({ titulo = 'Excluir', confirmar = 'Confirmar exclusão', aviso, onConfirmar, carregando }: {
+  titulo?: string; confirmar?: string; aviso?: string; onConfirmar: () => void; carregando?: boolean;
+}) {
+  const { cores } = useTema();
+  const [armado, setArmado] = useState(false);
+  useEffect(() => {
+    if (!armado) return;
+    const t = setTimeout(() => setArmado(false), 6000);
+    return () => clearTimeout(t);
+  }, [armado]);
+  if (!armado) {
+    return (
+      <Pressable onPress={() => setArmado(true)} accessibilityRole="button" hitSlop={6}
+        style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+          borderWidth: 1, borderColor: cores.borda, opacity: pressed ? 0.7 : 1, alignSelf: 'flex-start' }]}>
+        <Trash2 size={15} color={cores.erro} />
+        <T s={13} w="negrito" c="erro">{titulo}</T>
+      </Pressable>
+    );
+  }
+  return (
+    <View style={{ gap: 8, alignSelf: 'flex-start' }}>
+      {aviso ? <T s={12} w="medio" c="erro" style={{ maxWidth: 360 }}>{aviso}</T> : null}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Botao titulo={confirmar} variante="perigo" pequeno icone={Trash2} onPress={() => { setArmado(false); onConfirmar(); }} carregando={carregando} />
+        <Botao titulo="Cancelar" variante="out" pequeno onPress={() => setArmado(false)} />
+      </View>
+    </View>
   );
 }
 
