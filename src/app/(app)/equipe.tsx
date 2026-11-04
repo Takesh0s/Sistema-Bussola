@@ -2,7 +2,6 @@
 // Diretor: concedido pela Associação. Diretor e associados concedem os demais;
 // secretário e tesoureiro são da diretoria, sem esse poder.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Clipboard from 'expo-clipboard';
 import { Link2, Shield, Trash2, UserPlus } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
@@ -15,6 +14,7 @@ import {
 import * as api from '@/lib/api';
 import { CONCEDE, PAPEL_LABEL, Papel, useAuth } from '@/lib/auth';
 import { fmt } from '@/lib/datas';
+import { copiarTexto } from '@/lib/copiar';
 import { dados, mensagemErro, supabase } from '@/lib/supabase';
 import { useTema } from '@/theme';
 
@@ -119,14 +119,14 @@ export default function Equipe() {
     if (comUnidade && !unidadeConvite) return toast('Escolha a unidade do convite.', 'erro');
     const { data, error } = await supabase.from('convite').insert({ clube_id: clube.id, papel: papelConvite, unidade_id: comUnidade ? unidadeConvite : null }).select('token').single();
     if (error) return toast(mensagemErro(error), 'erro');
-    await Clipboard.setStringAsync(linkDe(data.token)).catch(() => {});
     await qc.invalidateQueries({ queryKey: ['convites'] });
-    toast('Convite criado. Link copiado.');
+    const como = await copiarTexto(linkDe(data.token)).catch(() => null);
+    toast(como === 'copiado' ? 'Convite criado. Link copiado.' : 'Convite criado.');
   }
 
   async function copiar(token: string) {
-    await Clipboard.setStringAsync(linkDe(token));
-    toast('Link copiado.');
+    const como = await copiarTexto(linkDe(token)).catch(() => null);
+    if (como === 'copiado') toast('Link copiado.');
   }
 
   async function revogarConvite(id: string) {
